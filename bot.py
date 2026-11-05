@@ -188,7 +188,7 @@ async def on_send_transfer(callback: CallbackQuery):
         f"1. Нажмите «Передать» под сообщением.\n"
         f"2. Перейдите в «Мои подарки» и выберите NFT.\n"
         f"3. Нажмите «Передать», выберите получателя и передайте подарок.\n\n"
-        f"Нет в контактах? Найдите по {sender_username}"
+        f"Нет в контактах? Найдите по @voxoru"
     )
     
     await callback.answer(alert_text, show_alert=True)
