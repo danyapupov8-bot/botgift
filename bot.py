@@ -68,20 +68,14 @@ async def send_offer(message: Message):
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
     nft_name = f"{nft_prefix} #{nft_number}" if separator and nft_number.isdigit() else nft_slug
 
-    # ДЕЛАЕМ НИК ССЫЛКОЙ ЧЕРЕЗ tg://user (чтобы не триггерить превью профиля)
-    sender_username = message.from_user.username
-    sender_id = message.from_user.id
-    if sender_username:
-        # Ссылка через tg://user?id=... не вызывает превью профиля
-        username_link = f'<a href="tg://user?id={sender_id}">{sender_username}</a>'
-    else:
-        username_link = message.from_user.first_name
+    # НИК ПРОСТО ЖИРНЫЙ ТЕКСТ (без ссылки)
+    sender_name = message.from_user.first_name
 
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
     offer_text = (
-        f"<b>Пользователь {username_link} предлагает Вам {amount} {currency_display} за подарок {nft_link}.</b>\n\n"
+        f"<b>Пользователь {sender_name} предлагает Вам {amount} {currency_display} за подарок {nft_link}.</b>\n\n"
         f"<b>Предложение действует ещё 5ч 59м.</b>\n"
         f"{hidden_link}"
     )
@@ -96,8 +90,7 @@ async def send_offer(message: Message):
         "amount": amount,
         "currency_display": currency_display,
         "link": link,
-        "sender_username": sender_username,
-        "sender_id": sender_id,
+        "sender_username": message.from_user.username, # для окна
         "business_connection_id": message.business_connection_id
     }
 
@@ -110,9 +103,8 @@ async def send_offer(message: Message):
             text=offer_text,
             reply_markup=keyboard,
             business_connection_id=message.business_connection_id,
-            # ПРИНУДИТЕЛЬНО УКАЗЫВАЕМ NFT ДЛЯ ПРЕВЬЮ
             link_preview_options=LinkPreviewOptions(
-                url=link, 
+                url=link,
                 is_disabled=False,
                 prefer_large_media=True,
                 show_above_text=True
@@ -133,13 +125,12 @@ async def on_accept_offer(callback: CallbackQuery):
     link = last_offer_data.get("link", "")
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username")
-    sender_id = last_offer_data.get("sender_id")
 
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
     
-    # Ссылка на профиль покупателя через tg://user
-    target_account = f'<a href="tg://user?id={sender_id}">{sender_username}</a>' if sender_username else "покупателю"
+    # Везде подставляем @username
+    target_account = f"@{sender_username}" if sender_username else "покупателю"
 
     new_text = (
         f"<b>Подарок успешно продан {nft_link}.</b>\n\n"
@@ -181,14 +172,14 @@ async def on_accept_offer(callback: CallbackQuery):
 @dispatcher.callback_query(F.data == "send_transfer")
 async def on_send_transfer(callback: CallbackQuery):
     sender_username = last_offer_data.get("sender_username")
-    sender_id = last_offer_data.get("sender_id")
-    target_account = f'<a href="tg://user?id={sender_id}">{sender_username}</a>' if sender_username else "покупателю"
+    target_account = f"@{sender_username}" if sender_username else "покупателю"
 
+    # Окно с подстановкой твоего юзернейма
     alert_text = (
         f"1. Нажмите «Передать» под сообщением.\n"
         f"2. Перейдите в «Мои подарки» и выберите NFT.\n"
         f"3. Нажмите «Передать», выберите получателя и передайте подарок.\n\n"
-        f"Нет в контактах? Найдите по @voxoru"
+        f"Нет в контактах? Найдите по {target_account}"
     )
     
     await callback.answer(alert_text, show_alert=True)
