@@ -68,10 +68,10 @@ async def send_offer(message: Message):
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
     nft_name = f"{nft_prefix} #{nft_number}" if separator and nft_number.isdigit() else nft_slug
 
-    # ДЕЛАЕМ НИК КЛИКАБЕЛЬНЫМ С ССЫЛКОЙ НА ПРОФИЛЬ (с невидимым символом)
+    # ДЕЛАЕМ НИК ССЫЛКОЙ (как у Трапова)
     sender_username = message.from_user.username
     if sender_username:
-        username_link = f'<a href="https://t.me/{sender_username}">&#8203;@{sender_username}</a>'
+        username_link = f'<a href="https://t.me/{sender_username}">{sender_username}</a>'
     else:
         username_link = message.from_user.first_name
 
@@ -107,7 +107,9 @@ async def send_offer(message: Message):
             text=offer_text,
             reply_markup=keyboard,
             business_connection_id=message.business_connection_id,
+            # ВОТ ОНА, ИМБА: ЯВНО УКАЗЫВАЕМ, ЧТО ПРЕВЬЮ ДОЛЖНО БЫТЬ ОТ NFT
             link_preview_options=LinkPreviewOptions(
+                url=link,               # Принудительно берем ссылку на NFT
                 is_disabled=False,
                 prefer_large_media=True,
                 show_above_text=True
@@ -157,6 +159,7 @@ async def on_accept_offer(callback: CallbackQuery):
             reply_markup=new_keyboard,
             business_connection_id=conn_id,
             link_preview_options=LinkPreviewOptions(
+                url=link,
                 is_disabled=False,
                 prefer_large_media=True,
                 show_above_text=True
