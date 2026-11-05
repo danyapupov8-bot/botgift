@@ -58,7 +58,7 @@ async def send_offer(message: Message):
         return
 
     if currency_raw == "stars":
-        currency_display = "⭐ Stars"
+        currency_display = "Stars"
     elif currency_raw == "ton":
         currency_display = "TON"
     else:
