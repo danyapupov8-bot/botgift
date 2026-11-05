@@ -5,7 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 # --- НАСТРОЙКИ ---
-BOT_TOKEN = "9132697740:AAFlvna4QfTfTaCZ6-RZ2fPGa2mBdba1l_A"
+BOT_TOKEN = "9132697740:AAGGGbDTSFBT8Q8zdQRjwqUJGm0bDClmnv8"
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dispatcher = Dispatcher()
@@ -18,10 +18,10 @@ STAR_EMOJI_ID = "5323333018151045958"
 CHECK_EMOJI_ID = "5774022692642492953"
 CROSS_EMOJI_ID = "5778527486270770928"
 ENVELOPE_EMOJI_ID = "6019263620142078168"
-TON_EMOJI_ID = "5406976471153545018" # <--- ID TON
+TON_EMOJI_ID = "5406976471153545018"
 
 STAR_EMOJI = f'<tg-emoji emoji-id="{STAR_EMOJI_ID}">⭐</tg-emoji>'
-TON_EMOJI = f'<tg-emoji emoji-id="{TON_EMOJI_ID}">💎</tg-emoji>' # Заменил обычный бриллиант на тег
+TON_EMOJI = f'<tg-emoji emoji-id="{TON_EMOJI_ID}">💎</tg-emoji>'
 
 # --- ФУНКЦИЯ ДЛЯ БЕЗОПАСНОГО УДАЛЕНИЯ ---
 async def safe_delete(chat_id, message_id, conn_id=None):
@@ -57,10 +57,13 @@ async def send_offer(message: Message):
 
     parts = message.text.split()
     
-    if len(parts) != 5:
+    if len(parts) < 5:
         return
 
     link = parts[1]
+    if not link.startswith("http"):
+        link = "https://" + link
+
     amount = parts[2]
     currency_raw = parts[3].lower()
     lang = parts[4].lower()
@@ -71,7 +74,6 @@ async def send_offer(message: Message):
     if lang not in ["ru", "en"]:
         return
 
-    # Настройка валюты (без слов)
     if currency_raw == "stars":
         currency_display = STAR_EMOJI
     elif currency_raw == "ton":
