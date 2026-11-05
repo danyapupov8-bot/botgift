@@ -68,19 +68,18 @@ async def send_offer(message: Message):
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
     nft_name = f"{nft_prefix} #{nft_number}" if separator and nft_number.isdigit() else nft_slug
 
-    # Просто пишем @username. Telegram сам сделает его ссылкой.
+    # ДЕЛАЕМ НИК КЛИКАБЕЛЬНЫМ С ССЫЛКОЙ НА ПРОФИЛЬ (с невидимым символом)
     sender_username = message.from_user.username
     if sender_username:
-        sender_display = f"@{sender_username}"
+        username_link = f'<a href="https://t.me/{sender_username}">&#8203;@{sender_username}</a>'
     else:
-        sender_display = message.from_user.first_name
+        username_link = message.from_user.first_name
 
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # ТЕКСТ КАК НА СКРИНШОТЕ
     offer_text = (
-        f"<b>Пользователь {sender_display} предлагает Вам {amount} {currency_display} за подарок {nft_link}.</b>\n\n"
+        f"<b>Пользователь {username_link} предлагает Вам {amount} {currency_display} за подарок {nft_link}.</b>\n\n"
         f"<b>Предложение действует ещё 5ч 59м.</b>\n"
         f"{hidden_link}"
     )
