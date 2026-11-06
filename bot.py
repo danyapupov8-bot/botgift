@@ -56,57 +56,62 @@ async def send_offer(message: Message):
 
     parts = message.text.split()
     
+    # Ожидаем минимум 4 части: .gpt, ссылка, валюта, язык
     if len(parts) < 4:
         return
 
-    is_double = parts[2].startswith("http") or parts[2].startswith("t.me")
-
-    if is_double:
-        link1 = parts[1]
-        link2 = parts[2]
-        amount_or_currency = parts[3].lower()
-        lang = parts[4].lower() if len(parts) > 4 else "ru"
-        nft_count = 2
-        amount = None
-        currency_raw = amount_or_currency
-    else:
-        link1 = parts[1]
-        link2 = None
-        amount_or_currency = parts[2].lower()
-        if amount_or_currency in ["premium", "prem"]:
-            amount = None
-            currency_raw = "premium"
-            lang = parts[3].lower() if len(parts) > 3 else "ru"
-        else:
-            amount = parts[2]
-            currency_raw = parts[3].lower()
-            lang = parts[4].lower() if len(parts) > 4 else "ru"
+    # Проверяем, сколько ссылок прислал пользователь (смотрим на части, начинающиеся с http или t.me)
+    links = [p for p in parts[1:] if p.startswith("http") or p.startswith("t.me")]
+    
+    if len(links) == 0:
+        return
+    elif len(links) == 1:
         nft_count = 1
+        link1 = links[0]
+        link2 = None
+        # Ищем сумму, валюту и язык
+        amount = parts[2]
+        currency_raw = parts[3].lower()
+        lang = parts[4].lower() if len(parts) > 4 else "ru"
+    elif len(links) >= 2:
+        nft_count = 2
+        link1 = links[0]
+        link2 = links[1]
+        # Если ссылок две, ищем сумму, валюту и язык среди оставшихся частей
+        # (пропускаем .gpt и сами ссылки)
+        remaining = [p for p in parts[1:] if p not in links]
+        if len(remaining) < 2:
+            return
+        amount = remaining[0]
+        currency_raw = remaining[1].lower()
+        lang = remaining[2].lower() if len(remaining) > 2 else "ru"
+    else:
+        return
 
+    # Проверка на полные ссылки
     if not link1.startswith("http"):
         link1 = "https://" + link1
     if link2 and not link2.startswith("http"):
         link2 = "https://" + link2
 
-    if currency_raw not in ["stars", "ton", "gram", "premium", "prem"]:
+    if currency_raw not in ["stars", "ton", "gram"]:
         return
 
     if lang not in ["ru", "en"]:
         lang = "ru"
 
+    # Настройка валюты
     if currency_raw == "stars":
         currency_display = STAR_EMOJI
         amount_text = f"{amount} {currency_display}"
     elif currency_raw == "ton":
         currency_display = TON_EMOJI
         amount_text = f"{amount} {currency_display}"
-    elif currency_raw in ["premium", "prem"]:
-        currency_display = "Telegram Premium"
-        amount_text = "Telegram Premium на 3 месяца" if lang == "ru" else "Telegram Premium for 3 months"
     else:
         currency_display = "Gram"
         amount_text = f"{amount} {currency_display}"
 
+    # Обработка названий NFT
     nft1_slug = link1.rstrip("/").split("/")[-1]
     nft1_prefix, separator, nft1_number = nft1_slug.rpartition("-")
     nft1_name = f"{nft1_prefix} #{nft1_number}" if separator and nft1_number.isdigit() else nft1_slug
@@ -122,6 +127,7 @@ async def send_offer(message: Message):
     sender_name = message.from_user.first_name
     hidden_link = f'<a href="{link1}">&#8203;</a>'
 
+    # Текст в зависимости от количества NFT
     if nft_count == 1:
         if lang == "ru":
             offer_text = f"<b>{sender_name} предлагает Вам {amount_text} за коллекционный предмет {nft1_link}.</b>\n\n<i>Действует 5ч 59м.</i>\n{hidden_link}"
@@ -157,8 +163,7 @@ async def send_offer(message: Message):
         "link2": link2,
         "sender_username": message.from_user.username,
         "lang": lang,
-        "business_connection_id": message.business_connection_id,
-        "is_premium": currency_raw in ["premium", "prem"]
+        "business_connection_id": message.business_connection_id
     }
 
     if last_message_id:
